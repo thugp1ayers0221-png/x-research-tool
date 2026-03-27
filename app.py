@@ -616,7 +616,7 @@ with tab5:
         with ar_col1:
             ar_keyword = st.text_input("キーワード（空白でも可）", placeholder="例: マーケティング, 副業, AI")
         with ar_col2:
-            ar_min_likes = st.number_input("最低いいね数", min_value=50, value=500, step=100)
+            ar_min_likes = st.number_input("最低いいね数", min_value=50, value=100, step=50)
         with ar_col3:
             ar_days = st.selectbox("期間", [7, 14, 30, 60, 90], index=2, format_func=lambda d: f"直近{d}日")
         with ar_col4:
