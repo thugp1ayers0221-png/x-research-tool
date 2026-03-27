@@ -6,12 +6,16 @@ load_dotenv()
 
 import streamlit as st
 
+import io
+import csv
+
 from audience_analyzer import analyze_audience, AudienceResult
 from kii_analyzer import analyze_brain_seo, BrainSEOResult, WORD_CLUSTERS, SEARCH_SEEDS
 from account_analyzer import analyze_account, AccountResult
 from post_analyzer import analyze_post, PostResult
 from neta_analyzer import analyze_neta, NetaResult
 from article_analyzer import analyze_articles, ArticleResult
+from persona_analyzer import analyze_persona, PersonaResult
 
 # ─── ページ設定 ──────────────────────────────────────────────
 st.set_page_config(
@@ -75,12 +79,13 @@ st.title("🔍 X アナライザー")
 if not api_key:
     st.error("⚠️ SOCIALDATA_API_KEY が未設定です。`.env` ファイルに設定してください。")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🔍 バズ探し",
     "👤 アカウント丸裸",
     "🎯 投稿分析",
     "💡 ネタ発掘",
     "📰 記事リサーチ",
+    "🧬 ペルソナ調査",
 ])
 
 
@@ -731,3 +736,244 @@ with tab5:
                         if a["author"]["description"]:
                             st.caption(a["author"]["description"][:80])
                         st.markdown(f"[ポストを開く]({a['tweet_url']})")
+
+
+# ════════════════════════════════════════════════════════════
+# TAB 6: ペルソナ調査
+# ════════════════════════════════════════════════════════════
+with tab6:
+    st.markdown("#### ターゲット層のいいね行動からペルソナデータを収集")
+    st.caption("プロフィールキーワードでユーザーをサンプリング → いいね投稿を大量収集 → 興味・ペイン・インサイトの種を抽出します")
+
+    with st.form("persona_form"):
+        pc1, pc2, pc3 = st.columns([4, 1, 1])
+        with pc1:
+            p_keywords_raw = st.text_input(
+                "ターゲット像キーワード（カンマ区切り）",
+                value="マーケター,SNS運用,個人事業主,経営者,メタ認知",
+                placeholder="例: マーケター, SNS運用, 個人事業主, 経営者, メタ認知"
+            )
+        with pc2:
+            p_min_f = st.number_input("フォロワー最小", min_value=100, value=1000, step=100)
+        with pc3:
+            p_max_f = st.number_input("フォロワー最大", min_value=1000, value=10000, step=1000)
+
+        pa1, pa2, pa3 = st.columns(3)
+        with pa1:
+            p_users = st.slider("サンプルユーザー数", min_value=50, max_value=500, value=500, step=50)
+        with pa2:
+            p_likes = st.slider("いいね収集数/人", min_value=20, max_value=100, value=100, step=20)
+        with pa3:
+            st.markdown("")
+            st.caption(f"推定APIコール: 約{p_users + (p_likes // 20) * p_users:,}回 ／ 推定コスト: 約{((p_users + (p_likes // 20) * p_users) * 0.0002 * 150):.0f}円")
+
+        p_submitted = st.form_submit_button("🧬 ペルソナ調査を開始", use_container_width=True, type="primary")
+
+    if p_submitted:
+        bio_kws = [k.strip() for k in p_keywords_raw.split(",") if k.strip()]
+        if not bio_kws:
+            st.warning("キーワードを1つ以上入力してください")
+        else:
+            p_status = st.empty()
+            p_log = st.empty()
+            log_lines = []
+
+            def on_persona_progress(msg: str):
+                log_lines.append(msg)
+                p_log.markdown("\n\n".join(log_lines[-6:]))
+
+            p_status.info("🔄 収集中... 数分かかります")
+            try:
+                pr = analyze_persona(
+                    api_key=api_key,
+                    bio_keywords=bio_kws,
+                    min_followers=p_min_f,
+                    max_followers=p_max_f,
+                    target_users=p_users,
+                    likes_per_user=p_likes,
+                    progress_callback=on_persona_progress,
+                )
+                p_status.empty()
+                p_log.empty()
+                st.session_state["persona_result"] = pr
+            except Exception as e:
+                p_status.empty()
+                st.error(f"エラー: {e}")
+
+    if "persona_result" in st.session_state:
+        pr: PersonaResult = st.session_state["persona_result"]
+
+        st.divider()
+
+        # ─── サマリー ────────────────────────────────────────
+        pm1, pm2, pm3, pm4 = st.columns(4)
+        pm1.metric("サンプルユーザー数", f"{pr.user_count:,}人")
+        pm2.metric("収集いいね数", f"{pr.like_count:,}件")
+        pm3.metric("抽出キーワード", f"{len(pr.top_keywords)}語")
+        pm4.metric("推定コスト", f"約{pr.estimated_cost_jpy:.0f}円")
+
+        if pr.errors:
+            for err in pr.errors:
+                st.warning(err)
+
+        # ─── CSV書き出し ──────────────────────────────────────
+        st.divider()
+
+        def _make_csv(rows: list[tuple], headers: list[str]) -> bytes:
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(headers)
+            w.writerows(rows)
+            return buf.getvalue().encode("utf-8-sig")
+
+        dl1, dl2, dl3, dl4 = st.columns(4)
+        with dl1:
+            if pr.top_keywords:
+                st.download_button(
+                    "📥 キーワードCSV",
+                    _make_csv(pr.top_keywords, ["キーワード", "出現回数"]),
+                    file_name="persona_keywords.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+        with dl2:
+            if pr.bigrams or pr.trigrams:
+                ngram_rows = [(p, c, "2gram") for p, c in pr.bigrams] + [(p, c, "3gram") for p, c in pr.trigrams]
+                st.download_button(
+                    "📥 フレーズCSV",
+                    _make_csv(ngram_rows, ["フレーズ", "出現回数", "種別"]),
+                    file_name="persona_phrases.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+        with dl3:
+            if pr.top_accounts:
+                st.download_button(
+                    "📥 いいねアカウントCSV",
+                    _make_csv(pr.top_accounts, ["アカウント", "いいね回数"]),
+                    file_name="persona_accounts.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+        with dl4:
+            # サンプル投稿の全データCSV
+            all_posts_rows = []
+            for fmt, posts in pr.sample_posts.items():
+                for p in posts:
+                    all_posts_rows.append([fmt, p.get("text", ""), p.get("likes", 0), p.get("retweets", 0), p.get("author", "")])
+            if all_posts_rows:
+                st.download_button(
+                    "📥 サンプル投稿CSV",
+                    _make_csv(all_posts_rows, ["形式", "投稿テキスト", "いいね", "RT", "著者"]),
+                    file_name="persona_sample_posts.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
+        if not pr.top_keywords and not pr.pain_words:
+            st.warning("データが収集できませんでした。キーワードや設定を変えて再試行してください。")
+        else:
+            st.divider()
+
+            left_col, right_col = st.columns(2)
+
+            # ─── 頻出キーワード ───────────────────────────────
+            with left_col:
+                st.markdown("#### 🔑 頻出キーワード TOP30")
+                if pr.top_keywords:
+                    max_cnt = pr.top_keywords[0][1] if pr.top_keywords else 1
+                    for word, cnt in pr.top_keywords[:30]:
+                        bar_pct = int(cnt / max_cnt * 100)
+                        st.markdown(
+                            f"<div class='bar-wrap'>"
+                            f"<span style='display:inline-block;width:120px;font-weight:600'>{word}</span>"
+                            f"<span style='display:inline-block;background:#4a90d9;height:14px;width:{bar_pct}%;border-radius:3px;vertical-align:middle'></span>"
+                            f"<span style='margin-left:6px;color:#666;font-size:0.85em'>{cnt:,}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+
+            # ─── コンテンツ形式分布 ───────────────────────────
+            with right_col:
+                st.markdown("#### 📝 いいねされた投稿の形式")
+                if pr.format_dist:
+                    total_fmt = sum(pr.format_dist.values())
+                    for fmt, cnt in sorted(pr.format_dist.items(), key=lambda x: -x[1]):
+                        pct = cnt / total_fmt * 100 if total_fmt > 0 else 0
+                        bar_w = int(pct)
+                        st.markdown(
+                            f"<div class='bar-wrap'>"
+                            f"<span style='display:inline-block;width:110px;font-weight:600'>{fmt}</span>"
+                            f"<span style='display:inline-block;background:#22c55e;height:14px;width:{bar_w}%;border-radius:3px;vertical-align:middle'></span>"
+                            f"<span style='margin-left:6px;color:#666;font-size:0.85em'>{pct:.1f}% ({cnt:,}件)</span>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+
+            st.divider()
+
+            # ─── 頻出フレーズ（n-gram）────────────────────────
+            bigram_col, trigram_col = st.columns(2)
+            with bigram_col:
+                st.markdown("#### 🔗 頻出フレーズ（2語）TOP20")
+                st.caption("いいね投稿に繰り返し登場する2語の組み合わせ")
+                if pr.bigrams:
+                    max_bc = pr.bigrams[0][1] if pr.bigrams else 1
+                    for phrase, cnt in pr.bigrams[:20]:
+                        bar_pct = int(cnt / max_bc * 100)
+                        st.markdown(
+                            f"<div class='bar-wrap'>"
+                            f"<span style='display:inline-block;width:140px;font-weight:600'>{phrase}</span>"
+                            f"<span style='display:inline-block;background:#f59e0b;height:14px;width:{bar_pct}%;border-radius:3px;vertical-align:middle'></span>"
+                            f"<span style='margin-left:6px;color:#666;font-size:0.85em'>{cnt:,}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.caption("データが不足しています")
+
+            with trigram_col:
+                st.markdown("#### 🔗 頻出フレーズ（3語）TOP15")
+                st.caption("より具体的な文脈・関心テーマが見えるフレーズ")
+                if pr.trigrams:
+                    max_tc = pr.trigrams[0][1] if pr.trigrams else 1
+                    for phrase, cnt in pr.trigrams[:15]:
+                        bar_pct = int(cnt / max_tc * 100)
+                        st.markdown(
+                            f"<div class='bar-wrap'>"
+                            f"<span style='display:inline-block;width:160px;font-weight:600'>{phrase}</span>"
+                            f"<span style='display:inline-block;background:#ef4444;height:14px;width:{bar_pct}%;border-radius:3px;vertical-align:middle'></span>"
+                            f"<span style='margin-left:6px;color:#666;font-size:0.85em'>{cnt:,}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.caption("データが不足しています")
+
+            st.divider()
+
+            # ─── よくいいねされるアカウント ───────────────────
+            st.markdown("#### 👤 よくいいねされるアカウント TOP15")
+            st.caption("ターゲット層が繰り返しいいねしているアカウント = 彼らのロールモデル・情報源")
+            if pr.top_accounts:
+                acc_cols = st.columns(3)
+                for i, (screen_name, cnt) in enumerate(pr.top_accounts[:15]):
+                    acc_cols[i % 3].markdown(
+                        f"**@{screen_name}** &nbsp; `{cnt}回いいね`  \n"
+                        f"[Xで見る](https://x.com/{screen_name})"
+                    )
+
+            st.divider()
+
+            # ─── サンプル投稿（形式別）───────────────────────
+            st.markdown("#### 🗂 サンプル投稿（いいねされた実際の投稿）")
+            st.caption("形式ごとに実際のいいね投稿を表示します。ターゲットが「刺さった」投稿を直接読んで分析に使ってください")
+            for fmt, posts in pr.sample_posts.items():
+                with st.expander(f"▶ {fmt}（{len(posts)}件）"):
+                    for p in posts:
+                        st.markdown(
+                            f"❤️ {p['likes']:,} &nbsp; 🔁 {p['retweets']:,} &nbsp; "
+                            f"[@{p['author']}](https://x.com/{p['author']})"
+                        )
+                        st.markdown(f"> {p['text'].replace(chr(10), ' ')}")
+                        st.markdown("---")
