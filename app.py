@@ -11,6 +11,7 @@ from kii_analyzer import analyze_brain_seo, BrainSEOResult, WORD_CLUSTERS, SEARC
 from account_analyzer import analyze_account, AccountResult
 from post_analyzer import analyze_post, PostResult
 from neta_analyzer import analyze_neta, NetaResult
+from article_analyzer import analyze_articles, ArticleResult
 
 # ─── ページ設定 ──────────────────────────────────────────────
 st.set_page_config(
@@ -74,11 +75,12 @@ st.title("🔍 X アナライザー")
 if not api_key:
     st.error("⚠️ SOCIALDATA_API_KEY が未設定です。`.env` ファイルに設定してください。")
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🔍 バズ探し",
     "👤 アカウント丸裸",
     "🎯 投稿分析",
     "💡 ネタ発掘",
+    "📰 記事リサーチ",
 ])
 
 
@@ -600,3 +602,113 @@ with tab4:
                     f"{p['text']}"
                 )
                 st.markdown("---")
+
+
+# ════════════════════════════════════════════════════════════
+# TAB 5: 記事リサーチ
+# ════════════════════════════════════════════════════════════
+with tab5:
+    st.markdown("#### キーワード（任意）を入れて分析ボタンを押すだけ")
+    st.caption("X Article を検索 → 本文・エンゲージメントを一括取得。トレンド記事のリサーチに使えます")
+
+    with st.form("article_form"):
+        ar_col1, ar_col2, ar_col3, ar_col4 = st.columns([3, 1, 1, 1])
+        with ar_col1:
+            ar_keyword = st.text_input("キーワード（空白でも可）", placeholder="例: マーケティング, 副業, AI")
+        with ar_col2:
+            ar_min_likes = st.number_input("最低いいね数", min_value=50, value=500, step=100)
+        with ar_col3:
+            ar_days = st.selectbox("期間", [7, 14, 30, 60, 90], index=2, format_func=lambda d: f"直近{d}日")
+        with ar_col4:
+            ar_max = st.selectbox("最大取得件数", [10, 20, 30], index=1)
+
+        ar_submitted = st.form_submit_button("📰 記事を探す", use_container_width=True, type="primary")
+
+    if ar_submitted:
+        ar_prog = st.progress(0, text="準備中...")
+
+        def on_ar_prog(pct: float, msg: str):
+            ar_prog.progress(pct, text=msg)
+
+        try:
+            ar_result = analyze_articles(
+                api_key=api_key,
+                keyword=ar_keyword,
+                min_likes=ar_min_likes,
+                days=ar_days,
+                max_articles=ar_max,
+                progress_callback=on_ar_prog,
+            )
+            ar_prog.empty()
+            st.session_state["ar_result"] = ar_result
+        except Exception as e:
+            ar_prog.empty()
+            st.error(f"エラー: {e}")
+
+    if "ar_result" in st.session_state:
+        ar: ArticleResult = st.session_state["ar_result"]
+
+        st.divider()
+        am1, am2, am3, am4 = st.columns(4)
+        am1.metric("検索ヒット数", f"{ar.searched_count}件")
+        am2.metric("記事取得数", f"{ar.articles_found}件")
+        am3.metric("APIコール数", f"{ar.api_calls}回")
+        am4.metric("推定コスト", f"約{ar.cost_jpy:.0f}円")
+
+        if not ar.articles:
+            st.warning("記事が見つかりませんでした。キーワードや期間・いいね数を変えて試してください。")
+        else:
+            st.divider()
+
+            # 記事一覧テーブル
+            st.markdown(f"#### 📋 記事一覧（いいね順 / {len(ar.articles)}件）")
+            header_cols = st.columns([3, 1, 1, 1, 1, 1, 2])
+            header_cols[0].markdown("**タイトル**")
+            header_cols[1].markdown("**❤️ いいね**")
+            header_cols[2].markdown("**🔁 RT**")
+            header_cols[3].markdown("**🔖 BM**")
+            header_cols[4].markdown("**👁 閲覧**")
+            header_cols[5].markdown("**👥 F数**")
+            header_cols[6].markdown("**著者**")
+            st.markdown("<hr style='margin:4px 0'>", unsafe_allow_html=True)
+
+            for a in ar.articles:
+                m = a["metrics"]
+                row = st.columns([3, 1, 1, 1, 1, 1, 2])
+                title_disp = (a["title"] or "（タイトルなし）")[:45]
+                row[0].markdown(f"[{title_disp}]({a['tweet_url']})")
+                row[1].markdown(f"{m['likes']:,}")
+                row[2].markdown(f"{m['retweets']:,}")
+                row[3].markdown(f"{m['bookmarks']:,}")
+                row[4].markdown(f"{m['views']/1000:.1f}k" if m['views'] else "—")
+                row[5].markdown(f"{a['author']['followers_count']:,}")
+                row[6].markdown(f"@{a['author']['screen_name']}")
+
+            st.divider()
+
+            # 記事詳細（展開式）
+            st.markdown("#### 📄 記事詳細")
+            for i, a in enumerate(ar.articles):
+                m = a["metrics"]
+                title = a["title"] or "（タイトルなし）"
+                label = f"{i+1}. {title[:60]}　❤️{m['likes']:,} 👁{m['views']/1000:.1f}k　@{a['author']['screen_name']}"
+                with st.expander(label):
+                    info_l, info_r = st.columns([2, 1])
+                    with info_l:
+                        if a["preview_text"]:
+                            st.caption(a["preview_text"])
+                        if a["text"]:
+                            st.markdown(a["text"])
+                        else:
+                            st.caption("（本文取得できませんでした）")
+                    with info_r:
+                        dm1, dm2 = st.columns(2)
+                        dm1.metric("❤️ いいね", f"{m['likes']:,}")
+                        dm2.metric("🔁 RT", f"{m['retweets']:,}")
+                        dm1.metric("🔖 BM", f"{m['bookmarks']:,}")
+                        dm2.metric("👁 閲覧", f"{m['views']/1000:.1f}k" if m['views'] else "—")
+                        st.markdown(f"**著者:** @{a['author']['screen_name']}  \n"
+                                    f"👥 {a['author']['followers_count']:,}")
+                        if a["author"]["description"]:
+                            st.caption(a["author"]["description"][:80])
+                        st.markdown(f"[ポストを開く]({a['tweet_url']})")
