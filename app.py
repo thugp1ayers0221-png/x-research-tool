@@ -16,7 +16,11 @@ from post_analyzer import analyze_post, PostResult
 from neta_analyzer import analyze_neta, NetaResult
 from article_analyzer import analyze_articles, ArticleResult
 from persona_analyzer import analyze_persona, PersonaResult
-from deep_search import deep_search, DeepSearchResult
+try:
+    from deep_search import deep_search, DeepSearchResult
+    _deep_search_ok = True
+except ImportError:
+    _deep_search_ok = False
 
 # ─── ページ設定 ──────────────────────────────────────────────
 st.set_page_config(

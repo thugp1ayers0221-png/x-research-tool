@@ -5,8 +5,6 @@ import json
 from dataclasses import dataclass, field
 from typing import Optional, Callable
 
-import anthropic
-
 from api import SocialDataClient
 
 
@@ -26,6 +24,7 @@ def _generate_queries(seed_phrase: str, context_keywords: list[str], anthropic_k
     context_keywords はペルソナ調査で出た頻出キーワード（文脈補強用）。
     戻り値: (クエリリスト, 推定コスト円)
     """
+    import anthropic
     client = anthropic.Anthropic(api_key=anthropic_key)
 
     context_str = "、".join(context_keywords[:20]) if context_keywords else "なし"
