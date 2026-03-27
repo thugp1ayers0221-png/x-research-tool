@@ -9,12 +9,20 @@ from typing import Optional, Callable
 
 from api import SocialDataClient
 
-try:
-    from janome.tokenizer import Tokenizer
-    _tokenizer = Tokenizer()
-    _janome_ok = True
-except Exception:
-    _janome_ok = False
+_tokenizer = None
+_janome_ok = False
+
+def _get_tokenizer():
+    """Tokenizerを初回使用時だけロード（起動時間短縮）"""
+    global _tokenizer, _janome_ok
+    if _tokenizer is None:
+        try:
+            from janome.tokenizer import Tokenizer
+            _tokenizer = Tokenizer()
+            _janome_ok = True
+        except Exception:
+            _janome_ok = False
+    return _tokenizer, _janome_ok
 
 CACHE_DIR = Path(__file__).parent / "cache" / "persona"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -82,9 +90,10 @@ def _extract_words(text: str) -> list[str]:
     text = re.sub(r'[@＠#＃]\S+', '', text)
 
     words = []
-    if _janome_ok:
+    tokenizer, janome_ok = _get_tokenizer()
+    if janome_ok:
         try:
-            for token in _tokenizer.tokenize(text):
+            for token in tokenizer.tokenize(text):
                 w = token.surface
                 pos = token.part_of_speech.split(',')[0]
                 if pos in ('名詞', '動詞', '形容詞') and len(w) >= 2:
