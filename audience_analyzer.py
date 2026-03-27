@@ -250,7 +250,7 @@ def analyze_audience(
             comments = cached
         else:
             try:
-                data = client._get(f'/twitter/tweet/{tweet_id}/comments')
+                data = client._get(f'/twitter/tweets/{tweet_id}/comments')
                 comments = []
                 for c in (data.get('tweets') or data.get('comments') or [])[:max_comments_per_post]:
                     text = c.get('full_text', '') or c.get('text', '')

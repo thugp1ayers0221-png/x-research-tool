@@ -100,7 +100,7 @@ class SocialDataClient:
 
     def get_tweet_comments(self, tweet_id: str) -> dict:
         """コメント（リプライ）一覧"""
-        return self._get(f"/twitter/tweet/{tweet_id}/comments")
+        return self._get(f"/twitter/tweets/{tweet_id}/comments")
 
     def get_all_users(self, path: str, max_results: int = 200) -> list[dict]:
         """ユーザーリストを全ページ取得するヘルパー"""
