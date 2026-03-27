@@ -1,0 +1,602 @@
+"""X アナライザー - 目的ベースUI"""
+import os
+import re
+from dotenv import load_dotenv
+load_dotenv()
+
+import streamlit as st
+
+from audience_analyzer import analyze_audience, AudienceResult
+from kii_analyzer import analyze_brain_seo, BrainSEOResult, WORD_CLUSTERS, SEARCH_SEEDS
+from account_analyzer import analyze_account, AccountResult
+from post_analyzer import analyze_post, PostResult
+from neta_analyzer import analyze_neta, NetaResult
+
+# ─── ページ設定 ──────────────────────────────────────────────
+st.set_page_config(
+    page_title="X アナライザー",
+    page_icon="🔍",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+st.markdown("""
+<style>
+  /* PC全振りレイアウト */
+  .block-container { max-width: 1400px !important; padding: 1.5rem 2rem !important; }
+
+  [data-testid="metric-container"] {
+    background: #f8f9fa;
+    border: 1px solid #e0e3e8;
+    border-radius: 8px;
+    padding: 10px 16px;
+  }
+  [data-testid="metric-container"]:hover { background: #f0f4ff; border-color: #4a90d9; }
+
+  h1 { font-size: 1.4rem !important; font-weight: 700 !important; margin-bottom: 0.2rem !important; }
+  h4 { font-size: 1.0rem !important; font-weight: 600 !important; margin-top: 0.8rem !important; }
+
+  section[data-testid="stSidebar"] { width: 0 !important; }
+  .stTabs [data-baseweb="tab"] { font-size: 1.0rem; font-weight: 600; padding: 8px 20px; }
+  .stTabs [data-baseweb="tab-list"] { gap: 4px; }
+
+  /* フォームの余白を詰める */
+  .stForm { border: 1px solid #e0e3e8 !important; border-radius: 10px !important; padding: 1rem !important; }
+  div[data-testid="stVerticalBlock"] > div { gap: 0.4rem; }
+
+  /* バーグラフの見た目改善 */
+  .bar-wrap { margin-bottom: 4px; }
+
+  /* expanderをコンパクトに */
+  .streamlit-expanderHeader { font-size: 0.9rem !important; padding: 6px 10px !important; }
+
+  /* 類似アカウントカード */
+  .similar-card {
+    border: 1px solid #e0e3e8;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    background: #fafbfc;
+  }
+  .similar-card:hover { background: #f0f4ff; border-color: #4a90d9; }
+
+  /* dividerの余白を詰める */
+  hr { margin: 0.8rem 0 !important; }
+
+  /* caption文字を少し大きく */
+  .stCaption { font-size: 0.82rem !important; }
+</style>
+""", unsafe_allow_html=True)
+
+api_key = os.getenv("SOCIALDATA_API_KEY", "")
+
+st.title("🔍 X アナライザー")
+if not api_key:
+    st.error("⚠️ SOCIALDATA_API_KEY が未設定です。`.env` ファイルに設定してください。")
+
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🔍 バズ探し",
+    "👤 アカウント丸裸",
+    "🎯 投稿分析",
+    "💡 ネタ発掘",
+])
+
+
+# ════════════════════════════════════════════════════════════
+# TAB 1: バズ探し
+# ════════════════════════════════════════════════════════════
+with tab1:
+    st.markdown("#### キーワードを入れて分析ボタンを押すだけ")
+    st.caption("バズ投稿の検索 → コメント・引用RTの生の声 → ターゲットのニーズ → ネタ候補 まで自動で実行します")
+
+    with st.form("buzz_form"):
+        b_col1, b_col2, b_col3 = st.columns([3, 1, 1])
+        with b_col1:
+            buzz_keyword = st.text_input("キーワード", placeholder="例: 行動経済学, 副業, マーケティング")
+        with b_col2:
+            b_min_faves = st.number_input("最低いいね数", min_value=50, value=300, step=50)
+        with b_col3:
+            b_days = st.selectbox("期間", [7, 14, 30, 60], index=2, format_func=lambda d: f"直近{d}日")
+
+        with st.expander("⚙️ 詳細設定"):
+            dc1, dc2 = st.columns(2)
+            with dc1:
+                b_max_posts = st.selectbox("バズ投稿数", [5, 10, 20], index=1)
+            with dc2:
+                b_max_comments = st.selectbox("コメント取得数/投稿", [20, 50, 100], index=1)
+
+        b_submitted = st.form_submit_button("🔍 バズ探し開始", use_container_width=True, type="primary")
+
+    if b_submitted:
+        if not buzz_keyword:
+            st.error("キーワードを入力してください")
+            st.stop()
+
+        b_prog = st.progress(0, text="準備中...")
+
+        def on_b_prog(stage, count, message):
+            pct = 0.2 if stage == "search" else min(0.2 + count / max(b_max_posts, 1) * 0.8, 1.0)
+            b_prog.progress(pct, text=message)
+
+        try:
+            b_result = analyze_audience(
+                api_key=api_key,
+                seed_keyword=buzz_keyword,
+                min_faves=b_min_faves,
+                max_seed_posts=b_max_posts,
+                max_comments_per_post=b_max_comments,
+                days=b_days,
+                progress_callback=on_b_prog,
+            )
+            b_prog.empty()
+            st.session_state["b_result"] = b_result
+        except Exception as e:
+            b_prog.empty()
+            st.error(f"エラー: {e}")
+
+    if "b_result" in st.session_state:
+        br: AudienceResult = st.session_state["b_result"]
+
+        st.divider()
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("バズ投稿数", f"{br.seed_posts_count}件")
+        m2.metric("収集コメント数", f"{br.comments_analyzed}件")
+        m3.metric("APIコール数", f"{br.api_calls}回")
+        m4.metric("推定コスト", f"約{br.cost_jpy:.0f}円")
+
+        st.divider()
+        left, right = st.columns(2)
+
+        with left:
+            st.markdown("#### 💬 ターゲットの頻出ワード")
+            if br.top_keywords:
+                max_c = br.top_keywords[0][1]
+                for word, count in br.top_keywords[:15]:
+                    bar = int(count / max_c * 100)
+                    st.markdown(
+                        f"`{word}` **{count}回** "
+                        f"<div style='background:#3498db;height:5px;width:{bar}%;border-radius:3px;margin-bottom:5px'></div>",
+                        unsafe_allow_html=True
+                    )
+
+            st.markdown("#### 😟 悩み・ニーズ")
+            if br.pain_points:
+                for w, c in br.pain_points[:8]:
+                    st.markdown(f"- **{w}** ({c}件)")
+            else:
+                st.caption("データなし")
+
+        with right:
+            st.markdown("#### ❓ ターゲットが聞いている質問")
+            if br.questions:
+                for q in br.questions[:10]:
+                    st.markdown(f"- {q}")
+            else:
+                st.caption("質問文が検出されませんでした")
+
+            st.markdown("#### 🏷️ よく使われるハッシュタグ")
+            if br.top_hashtags:
+                st.markdown(" ".join([f"`#{t}`" for t, _ in br.top_hashtags[:12]]))
+
+        st.divider()
+        st.markdown("#### ✍️ ネタ候補（自動生成）")
+        nc1, nc2 = st.columns(2)
+        for i, t in enumerate(br.topic_suggestions):
+            nc1.markdown(f"- {t}") if i % 2 == 0 else nc2.markdown(f"- {t}")
+
+        with st.expander("💬 コメントのサンプル（生の声）"):
+            for c in br.raw_comments[:20]:
+                st.caption(c)
+                st.markdown("---")
+
+
+# ════════════════════════════════════════════════════════════
+# TAB 2: アカウント丸裸
+# ════════════════════════════════════════════════════════════
+with tab2:
+    st.markdown("#### @usernameを入れて分析ボタンを押すだけ")
+    st.caption("プロフィール → 投稿傾向 → フォロワー属性 → 類似アカウント → いいね傾向 まで自動で実行します")
+
+    with st.form("account_form"):
+        ac_col1, ac_col2 = st.columns([3, 1])
+        with ac_col1:
+            ac_handle = st.text_input("アカウント名", placeholder="例: kii_analytics（@なし）")
+        with ac_col2:
+            ac_max_followers = st.selectbox("フォロワーサンプル数", [100, 200, 300], index=1)
+
+        ac_submitted = st.form_submit_button("👤 丸裸分析を開始", use_container_width=True, type="primary")
+
+    if ac_submitted:
+        if not ac_handle:
+            st.error("アカウント名を入力してください")
+            st.stop()
+
+        handle = ac_handle.lstrip("@")
+        ac_prog = st.progress(0, text="準備中...")
+
+        def on_ac_prog(pct: float, msg: str):
+            ac_prog.progress(pct, text=msg)
+
+        try:
+            ac_result = analyze_account(
+                api_key=api_key,
+                handle=handle,
+                max_followers=ac_max_followers,
+                max_tweets=60,
+                max_likes=50,
+                progress_callback=on_ac_prog,
+            )
+            ac_prog.empty()
+            st.session_state["ac_result"] = ac_result
+        except Exception as e:
+            ac_prog.empty()
+            st.error(f"エラー: {e}")
+
+    if "ac_result" in st.session_state:
+        ac: AccountResult = st.session_state["ac_result"]
+
+        st.divider()
+
+        # ── プロフィールサマリー（6列）
+        pc1, pc2, pc3, pc4, pc5, pc6 = st.columns(6)
+        pc1.metric("フォロワー", f"{ac.followers_count:,}")
+        pc2.metric("フォロー", f"{ac.following_count:,}")
+        pc3.metric("総投稿数", f"{ac.tweet_count:,}")
+        pc4.metric("平均いいね", f"{ac.tweet_analysis.get('avg_likes', 0):.0f}")
+        pc5.metric("APIコール数", f"{ac.api_calls}回")
+        pc6.metric("推定コスト", f"約{ac.cost_jpy:.0f}円")
+
+        st.info(f"**@{ac.handle}** ({ac.name})　{ac.bio if ac.bio else ''}")
+
+        st.divider()
+
+        # ── 3カラムレイアウト（投稿傾向 / フォロワー属性 / 類似アカウント）
+        col_tweet, col_follower, col_similar = st.columns([2, 2, 2])
+
+        # 投稿傾向
+        ta = ac.tweet_analysis
+        with col_tweet:
+            st.markdown("#### 📊 投稿傾向")
+            if ta:
+                tm1, tm2, tm3 = st.columns(3)
+                tm1.metric("平均RT", f"{ta.get('avg_rts', 0):.1f}")
+                tm2.metric("平均閲覧数", f"{ta.get('avg_views', 0)/1000:.1f}k")
+                tm3.metric("バズ率", f"{ta.get('buzz_rate', 0)*100:.0f}%")
+
+                st.markdown("**頻出ワード**")
+                if ta.get("top_keywords"):
+                    st.markdown(" ".join([f"`{w}`" for w, _ in ta["top_keywords"][:12]]))
+
+                st.markdown("**ハッシュタグ**")
+                if ta.get("top_hashtags"):
+                    st.markdown(" ".join([f"`#{h}`" for h, _ in ta["top_hashtags"][:8]]))
+
+                st.markdown("**バズ投稿 TOP5**")
+                for p in ta.get("top_posts", [])[:5]:
+                    st.markdown(
+                        f"❤️{p['likes']:,} 🔁{p['rts']:,} 👁{p['views']/1000:.1f}k &nbsp; "
+                        f"[{p['text'][:50]}...]({p['url']})",
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.caption("投稿データなし")
+
+        # フォロワー属性
+        fa = ac.follower_analysis
+        with col_follower:
+            st.markdown(f"#### 👥 フォロワー属性（{fa.get('total', 0)}件）")
+            if fa:
+                st.markdown("**規模分布**")
+                tier = fa.get("tier", {})
+                total_tier = sum(tier.values()) or 1
+                for label, count in tier.items():
+                    pct = count / total_tier * 100
+                    st.markdown(
+                        f"`{label}` {pct:.0f}% ({count}人)"
+                        f"<div style='background:#2ecc71;height:5px;width:{pct:.0f}%;border-radius:3px;margin-bottom:4px'></div>",
+                        unsafe_allow_html=True
+                    )
+                if fa.get("verified_count"):
+                    st.caption(f"✅ 認証アカウント {fa['verified_count']}人含む")
+
+                st.markdown("**ジャンル分布**")
+                genre = fa.get("genre", {})
+                total_genre = sum(genre.values()) or 1
+                for label, count in list(genre.items())[:6]:
+                    pct = count / total_genre * 100
+                    st.markdown(
+                        f"`{label}` {pct:.0f}%"
+                        f"<div style='background:#9b59b6;height:5px;width:{pct:.0f}%;border-radius:3px;margin-bottom:4px'></div>",
+                        unsafe_allow_html=True
+                    )
+
+                st.markdown("**bioキーワード**")
+                if fa.get("bio_keywords"):
+                    st.markdown(" ".join([f"`{w}`" for w, _ in fa["bio_keywords"][:16]]))
+            else:
+                st.caption("フォロワーデータなし")
+
+        # 類似アカウント
+        with col_similar:
+            st.markdown("#### 🔗 類似アカウント")
+            if ac.similar_accounts:
+                for sim in ac.similar_accounts[:8]:
+                    vmark = "✅ " if sim.get("verified") else ""
+                    st.markdown(
+                        f"{vmark}**[{sim['name']}](https://x.com/{sim['handle']})** `@{sim['handle']}`  \n"
+                        f"👥 {sim['followers']:,}  \n"
+                        f"<span style='color:#666;font-size:0.82rem'>{sim['bio'][:55]}</span>",
+                        unsafe_allow_html=True
+                    )
+                    st.markdown("<hr style='margin:6px 0'>", unsafe_allow_html=True)
+            else:
+                st.caption("類似アカウントが見つかりませんでした")
+
+        # ── いいね傾向
+        la = ac.likes_analysis
+        if la and la.get("count", 0) > 0:
+            st.divider()
+            st.markdown(f"#### ❤️ いいね傾向（{la['count']}件から分析）")
+            ll, lr = st.columns(2)
+            with ll:
+                st.markdown("**いいねしている投稿の頻出ワード**")
+                if la.get("top_keywords"):
+                    st.markdown(" ".join([f"`{w}`" for w, _ in la["top_keywords"][:15]]))
+            with lr:
+                st.markdown("**よくいいねするハッシュタグ**")
+                if la.get("top_hashtags"):
+                    st.markdown(" ".join([f"`#{h}`" for h, _ in la["top_hashtags"][:10]]))
+        else:
+            st.info("💡 いいねが非公開または0件のためスキップしました")
+
+
+# ════════════════════════════════════════════════════════════
+# TAB 3: 投稿分析
+# ════════════════════════════════════════════════════════════
+with tab3:
+    st.markdown("#### 投稿URLを入れて分析ボタンを押すだけ")
+    st.caption("RTした人の属性 → 引用RTの反応パターン → コメントの声 → 「誰に届いたか」を可視化します")
+
+    with st.form("post_form"):
+        p_url = st.text_input(
+            "投稿URL",
+            placeholder="例: https://x.com/kii_analytics/status/1234567890"
+        )
+
+        with st.expander("⚙️ 詳細設定"):
+            pc1, pc2, pc3 = st.columns(3)
+            with pc1:
+                p_max_rt = st.selectbox("RTした人の最大取得数", [50, 100, 200], index=1)
+            with pc2:
+                p_max_quotes = st.selectbox("引用RTの最大取得数", [30, 50, 100], index=1)
+            with pc3:
+                p_max_comments = st.selectbox("コメントの最大取得数", [30, 50, 100], index=1)
+
+        p_submitted = st.form_submit_button("🎯 投稿を分析", use_container_width=True, type="primary")
+
+    if p_submitted:
+        if not p_url:
+            st.error("投稿URLを入力してください")
+            st.stop()
+
+        p_prog = st.progress(0, text="準備中...")
+
+        def on_p_prog(pct: float, msg: str):
+            p_prog.progress(pct, text=msg)
+
+        try:
+            p_result = analyze_post(
+                api_key=api_key,
+                tweet_url=p_url,
+                max_retweeters=p_max_rt,
+                max_quotes=p_max_quotes,
+                max_comments=p_max_comments,
+                progress_callback=on_p_prog,
+            )
+            p_prog.empty()
+            st.session_state["p_result"] = p_result
+        except Exception as e:
+            p_prog.empty()
+            st.error(f"エラー: {e}")
+
+    if "p_result" in st.session_state:
+        pr: PostResult = st.session_state["p_result"]
+
+        st.divider()
+
+        # 投稿サマリー
+        st.markdown(f"#### 分析対象投稿")
+        st.info(f"[{pr.text or '（テキスト取得なし）'}]({pr.url})")
+        pm1, pm2, pm3, pm4, pm5 = st.columns(5)
+        pm1.metric("❤️ いいね", f"{pr.likes:,}")
+        pm2.metric("🔁 RT", f"{pr.retweets:,}")
+        pm3.metric("💬 引用RT", f"{pr.quotes:,}")
+        pm4.metric("💭 コメント", f"{pr.replies:,}")
+        pm5.metric("👁 閲覧数", f"{pr.views:,}")
+
+        st.divider()
+
+        col_l, col_r = st.columns(2)
+
+        with col_l:
+            # RTした人の属性
+            ra = pr.retweeter_analysis
+            st.markdown(f"#### 🔁 RTした人の属性（{ra.get('total', 0)}人）")
+            if ra and ra.get("total", 0) > 0:
+                st.markdown("**フォロワー規模**")
+                tier = ra.get("tier", {})
+                total_t = sum(tier.values()) or 1
+                for label, count in tier.items():
+                    pct = count / total_t * 100
+                    st.markdown(
+                        f"`{label}` {pct:.0f}% ({count}人)"
+                        f"<div style='background:#e74c3c;height:5px;width:{pct:.0f}%;border-radius:3px;margin-bottom:5px'></div>",
+                        unsafe_allow_html=True
+                    )
+                if ra.get("verified_count"):
+                    st.markdown(f"✅ 認証アカウント: **{ra['verified_count']}人**")
+
+                st.markdown("**ジャンル分布**")
+                genre = ra.get("genre", {})
+                for label, count in list(genre.items())[:6]:
+                    st.markdown(f"- {label}: {count}人")
+
+                st.markdown("**RTした人のbioワード**")
+                if ra.get("bio_keywords"):
+                    st.markdown(" ".join([f"`{w}`" for w, _ in ra["bio_keywords"][:15]]))
+            else:
+                st.caption("RTデータが取得できませんでした")
+
+            # コメント
+            ca = pr.comment_analysis
+            st.markdown(f"#### 💭 コメントの声（{ca.get('count', 0)}件）")
+            if ca and ca.get("count", 0) > 0:
+                st.markdown("**頻出ワード**")
+                if ca.get("top_keywords"):
+                    st.markdown(" ".join([f"`{w}`" for w, _ in ca["top_keywords"][:12]]))
+                if ca.get("pain_points"):
+                    st.markdown("**悩み・ニーズ**")
+                    for w, c in ca["pain_points"][:5]:
+                        st.markdown(f"- {w} ({c}件)")
+                if ca.get("questions"):
+                    st.markdown("**聞かれた質問**")
+                    for q in ca["questions"][:5]:
+                        st.markdown(f"- {q}")
+                with st.expander("💬 コメントサンプル"):
+                    for c in ca.get("samples", [])[:10]:
+                        st.caption(c)
+                        st.markdown("---")
+            else:
+                st.caption("コメントデータが取得できませんでした")
+
+        with col_r:
+            # 引用RTの分析
+            qa = pr.quote_analysis
+            st.markdown(f"#### 💬 引用RTの反応パターン（{qa.get('count', 0)}件）")
+            if qa and qa.get("count", 0) > 0:
+                st.markdown("**引用RTで使われたワード**")
+                if qa.get("top_keywords"):
+                    max_qc = qa["top_keywords"][0][1] if qa["top_keywords"] else 1
+                    for w, c in qa["top_keywords"][:12]:
+                        bar = int(c / max_qc * 100)
+                        st.markdown(
+                            f"`{w}` **{c}回** "
+                            f"<div style='background:#f39c12;height:5px;width:{bar}%;border-radius:3px;margin-bottom:5px'></div>",
+                            unsafe_allow_html=True
+                        )
+
+                if qa.get("pain_points"):
+                    st.markdown("**引用RTに含まれる悩み**")
+                    for w, c in qa["pain_points"][:5]:
+                        st.markdown(f"- {w} ({c}件)")
+
+                if qa.get("questions"):
+                    st.markdown("**引用RTで出た質問**")
+                    for q in qa["questions"][:5]:
+                        st.markdown(f"- {q}")
+
+                with st.expander("💬 引用RTのサンプル"):
+                    for q in qa.get("samples", [])[:10]:
+                        st.caption(q)
+                        st.markdown("---")
+            else:
+                st.caption("引用RTデータが取得できませんでした")
+
+
+# ════════════════════════════════════════════════════════════
+# TAB 4: ネタ発掘
+# ════════════════════════════════════════════════════════════
+with tab4:
+    st.markdown("#### 参考にしたいアカウントを入れて分析ボタンを押すだけ")
+    st.caption("そのアカウントのいいね傾向 → トピッククラスター分析 → 「このアカウントが好むコンテンツ＝ネタ候補」を抽出します")
+
+    with st.form("neta_form"):
+        n_col1, n_col2 = st.columns([3, 1])
+        with n_col1:
+            n_handle = st.text_input("アカウント名", placeholder="例: competitor_account（@なし）")
+        with n_col2:
+            n_max_likes = st.selectbox("取得件数", [50, 100, 200], index=1)
+
+        n_submitted = st.form_submit_button("💡 ネタを発掘", use_container_width=True, type="primary")
+
+    if n_submitted:
+        if not n_handle:
+            st.error("アカウント名を入力してください")
+            st.stop()
+
+        handle_n = n_handle.lstrip("@")
+        n_prog = st.progress(0, text="準備中...")
+
+        def on_n_prog(pct: float, msg: str):
+            n_prog.progress(pct, text=msg)
+
+        try:
+            n_result = analyze_neta(
+                api_key=api_key,
+                handle=handle_n,
+                max_likes=n_max_likes,
+                progress_callback=on_n_prog,
+            )
+            n_prog.empty()
+            st.session_state["n_result"] = n_result
+        except Exception as e:
+            n_prog.empty()
+            st.error(f"エラー: {e}")
+
+    if "n_result" in st.session_state:
+        nr: NetaResult = st.session_state["n_result"]
+
+        st.divider()
+        nm1, nm2, nm3 = st.columns(3)
+        nm1.metric("分析した投稿数", f"{nr.likes_count}件")
+        nm2.metric("APIコール数", f"{nr.api_calls}回")
+        nm3.metric("推定コスト", f"約{nr.cost_jpy:.0f}円")
+
+        st.divider()
+
+        nl, nr_col = st.columns(2)
+
+        with nl:
+            st.markdown("#### 📊 トピッククラスター")
+            st.caption("どのジャンルのコンテンツに反応しているか")
+            if nr.topic_clusters:
+                max_score = max(nr.topic_clusters.values()) or 1
+                for cluster, score in nr.topic_clusters.items():
+                    bar = int(score / max_score * 100)
+                    st.markdown(
+                        f"`{cluster}` スコア:{score}"
+                        f"<div style='background:#e74c3c;height:6px;width:{bar}%;border-radius:3px;margin-bottom:6px'></div>",
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.caption("クラスターデータなし")
+
+            st.markdown("#### 🏷️ 頻出ハッシュタグ")
+            if nr.top_hashtags:
+                st.markdown(" ".join([f"`#{h}`" for h, _ in nr.top_hashtags[:12]]))
+
+        with nr_col:
+            st.markdown("#### 🔑 頻出ワード")
+            if nr.top_keywords:
+                max_kc = nr.top_keywords[0][1] if nr.top_keywords else 1
+                for w, c in nr.top_keywords[:15]:
+                    bar = int(c / max_kc * 100)
+                    st.markdown(
+                        f"`{w}` **{c}回** "
+                        f"<div style='background:#3498db;height:5px;width:{bar}%;border-radius:3px;margin-bottom:5px'></div>",
+                        unsafe_allow_html=True
+                    )
+
+        st.divider()
+        st.markdown("#### ✍️ このアカウントの好みから生成したネタ候補")
+        nc1, nc2 = st.columns(2)
+        for i, t in enumerate(nr.neta_suggestions):
+            nc1.markdown(f"- {t}") if i % 2 == 0 else nc2.markdown(f"- {t}")
+
+        with st.expander("📌 エンゲージメント高い投稿サンプル"):
+            for p in nr.sample_liked_posts:
+                st.markdown(
+                    f"❤️ {p['likes']:,} &nbsp; [@{p['author']}]({p['url']})  \n"
+                    f"{p['text']}"
+                )
+                st.markdown("---")
