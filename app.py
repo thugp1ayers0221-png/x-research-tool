@@ -16,6 +16,7 @@ from post_analyzer import analyze_post, PostResult
 from neta_analyzer import analyze_neta, NetaResult
 from article_analyzer import analyze_articles, ArticleResult
 from persona_analyzer import analyze_persona, PersonaResult
+from deep_search import deep_search, DeepSearchResult
 
 # ─── ページ設定 ──────────────────────────────────────────────
 st.set_page_config(
@@ -977,3 +978,96 @@ with tab6:
                         )
                         st.markdown(f"> {p['text'].replace(chr(10), ' ')}")
                         st.markdown("---")
+
+        # ════════════════════════════════════════════════════
+        # フレーズ深堀り検索
+        # ════════════════════════════════════════════════════
+        st.divider()
+        st.markdown("#### 🔍 フレーズ深堀り検索")
+        st.caption("調査で気になったフレーズを入力 → Claude が関連クエリを生成 → 3万インプレ以上の投稿を収集")
+
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+
+        with st.form("deep_search_form"):
+            ds_col1, ds_col2, ds_col3 = st.columns([4, 1, 1])
+            with ds_col1:
+                ds_phrase = st.text_input(
+                    "起点フレーズ（頻出フレーズ・キーワードをコピペ）",
+                    placeholder="例: デートの作法 / SNS 発信 / 思考力 鍛える"
+                )
+            with ds_col2:
+                ds_min_views = st.number_input("最低インプレ数", min_value=10000, value=30000, step=10000)
+            with ds_col3:
+                ds_max = st.selectbox("最大取得件数", [20, 30, 50], index=1)
+
+            ds_submitted = st.form_submit_button("🔍 深堀り検索", use_container_width=True, type="primary")
+
+        if ds_submitted:
+            if not ds_phrase.strip():
+                st.warning("フレーズを入力してください")
+            elif not anthropic_key:
+                st.error("ANTHROPIC_API_KEY が未設定です")
+            else:
+                ds_status = st.empty()
+                ds_log = st.empty()
+                ds_log_lines = []
+
+                def on_ds_progress(msg: str):
+                    ds_log_lines.append(msg)
+                    ds_log.markdown("\n\n".join(ds_log_lines[-5:]))
+
+                ds_status.info("🔄 検索中...")
+
+                # ペルソナ調査のキーワードを文脈として渡す
+                ctx_kws = []
+                if "persona_result" in st.session_state:
+                    ctx_kws = [w for w, _ in st.session_state["persona_result"].top_keywords[:20]]
+
+                try:
+                    ds_result = deep_search(
+                        api_key=api_key,
+                        anthropic_key=anthropic_key,
+                        seed_phrase=ds_phrase,
+                        context_keywords=ctx_kws,
+                        min_views=ds_min_views,
+                        max_results=ds_max,
+                        progress_callback=on_ds_progress,
+                    )
+                    ds_status.empty()
+                    ds_log.empty()
+                    st.session_state["ds_result"] = ds_result
+                except Exception as e:
+                    ds_status.empty()
+                    st.error(f"エラー: {e}")
+
+        if "ds_result" in st.session_state:
+            ds: DeepSearchResult = st.session_state["ds_result"]
+
+            dm1, dm2, dm3, dm4 = st.columns(4)
+            dm1.metric("ヒット件数", f"{len(ds.posts)}件")
+            dm2.metric("検索投稿数", f"{ds.total_searched:,}件")
+            dm3.metric("LLMコスト", f"¥{ds.llm_cost_jpy:.2f}")
+            dm4.metric("合計コスト", f"¥{ds.llm_cost_jpy + ds.api_cost_jpy:.1f}")
+
+            if ds.generated_queries:
+                with st.expander("🤖 Claudeが生成したクエリ"):
+                    for q in ds.generated_queries:
+                        st.markdown(f"- `{q}`")
+
+            if not ds.posts:
+                st.warning(f"{ds_min_views:,}インプレ以上の投稿が見つかりませんでした。インプレ数を下げるか、フレーズを変えて試してください。")
+            else:
+                st.markdown(f"#### 📊 結果（インプレ降順 / {len(ds.posts)}件）")
+                for p in ds.posts:
+                    with st.expander(
+                        f"👁 {p['views']:,}  ❤️ {p['likes']:,}  🔁 {p['retweets']:,}  "
+                        f"@{p['author']} — {p['text'][:50]}..."
+                    ):
+                        st.markdown(f"**マッチクエリ:** `{p['matched_query']}`")
+                        st.markdown(f"> {p['text'].replace(chr(10), ' ')}")
+                        mc1, mc2, mc3, mc4 = st.columns(4)
+                        mc1.metric("👁 インプレ", f"{p['views']:,}")
+                        mc2.metric("❤️ いいね", f"{p['likes']:,}")
+                        mc3.metric("🔁 RT", f"{p['retweets']:,}")
+                        mc4.metric("👥 フォロワー", f"{p['followers']:,}")
+                        st.markdown(f"[投稿を開く]({p['url']})")
