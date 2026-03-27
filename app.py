@@ -180,11 +180,27 @@ with tab1:
             if br.top_hashtags:
                 st.markdown(" ".join([f"`#{t}`" for t, _ in br.top_hashtags[:12]]))
 
+        # バズ投稿サンプル
+        if br.seed_posts:
+            st.divider()
+            st.markdown("#### 🔥 分析対象のバズ投稿")
+            for p in br.seed_posts:
+                st.markdown(
+                    f"❤️{p['likes']:,} 🔁{p['retweets']:,} 👁{p['views']/1000:.1f}k &nbsp; "
+                    f"[@{p['author']}]({p['url']})  \n"
+                    f"{p['text']}",
+                    unsafe_allow_html=True,
+                )
+                st.markdown("<hr style='margin:4px 0'>", unsafe_allow_html=True)
+
         st.divider()
-        st.markdown("#### ✍️ ネタ候補（自動生成）")
+        st.markdown("#### ✍️ ネタ候補（バズる型×キーワード）")
         nc1, nc2 = st.columns(2)
         for i, t in enumerate(br.topic_suggestions):
-            nc1.markdown(f"- {t}") if i % 2 == 0 else nc2.markdown(f"- {t}")
+            if i % 2 == 0:
+                nc1.markdown(f"- {t}")
+            else:
+                nc2.markdown(f"- {t}")
 
         with st.expander("💬 コメントのサンプル（生の声）"):
             for c in br.raw_comments[:20]:
@@ -593,7 +609,10 @@ with tab4:
         st.markdown("#### ✍️ このアカウントの好みから生成したネタ候補")
         nc1, nc2 = st.columns(2)
         for i, t in enumerate(nr.neta_suggestions):
-            nc1.markdown(f"- {t}") if i % 2 == 0 else nc2.markdown(f"- {t}")
+            if i % 2 == 0:
+                nc1.markdown(f"- {t}")
+            else:
+                nc2.markdown(f"- {t}")
 
         with st.expander("📌 エンゲージメント高い投稿サンプル"):
             for p in nr.sample_liked_posts:

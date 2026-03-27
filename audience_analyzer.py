@@ -43,7 +43,15 @@ EN_STOP = {
     'what', 'which', 'who', 'how', 'when', 'where', 'why', 'rt',
 }
 
-# ─── 感情・悩みキーワード（生の声検出用） ─────────────────────
+# ─── スパム判定ワード ─────────────────────────────────────────
+# これらが2つ以上含まれる投稿はキャンペーン・スパムとして除外
+SPAM_KEYWORDS = [
+    'フォロー', 'リポスト', 'プレゼント', '懸賞', 'キャンペーン',
+    '当選', '抽選', '当たる', 'もれなく', '全員', 'QUO', 'ギフト券',
+    'フォロリポ', 'RTで当', 'リツイート', '応募', '締切',
+]
+
+# ─── 感情・悩みキーワード ─────────────────────────────────────
 PAIN_WORDS = [
     '悩んでる', '悩んでいる', '悩み', '困ってる', '困っている', '困った',
     '知りたい', '教えて', 'どうすれば', 'どうやって', 'どうしたら',
@@ -55,12 +63,19 @@ PAIN_WORDS = [
     '時間がない', 'お金がない', 'スキルがない',
 ]
 
-# 属性ワード（デモグラ検出用）
 DEMO_PATTERNS = [
     r'\d+代', r'\d+歳', r'会社員', r'サラリーマン', r'フリーランス',
     r'主婦', r'主夫', r'学生', r'大学生', r'社会人', r'新卒', r'転職',
     r'副業', r'起業', r'独立', r'育児', r'子育て', r'ママ', r'パパ',
 ]
+
+
+# ─── スパム判定 ───────────────────────────────────────────────
+def _is_spam(tweet: dict) -> bool:
+    """キャンペーン・プレゼント系スパム投稿を除外"""
+    text = tweet.get('full_text', '') or tweet.get('text', '')
+    hit = sum(1 for w in SPAM_KEYWORDS if w in text)
+    return hit >= 2
 
 
 # ─── テキスト解析 ─────────────────────────────────────────────
@@ -76,7 +91,6 @@ def _extract_hashtags(text: str) -> list[str]:
 
 
 def _extract_questions(text: str) -> list[str]:
-    """質問文を抽出"""
     sentences = re.split(r'[。！!?\n]', text)
     return [s.strip() for s in sentences
             if ('?' in s or '？' in s or
@@ -84,37 +98,31 @@ def _extract_questions(text: str) -> list[str]:
 
 
 def _extract_keywords(text: str, min_len: int = 2) -> list[str]:
-    """形態素解析でキーワード抽出（名詞-一般・名詞-固有名詞のみ）"""
     text = _clean_text(text)
     words = []
 
     if _janome_ok:
         for token in _tokenizer.tokenize(text):
             parts = token.part_of_speech.split(',')
-            pos0 = parts[0]   # 品詞（名詞/動詞/etc）
-            pos1 = parts[1] if len(parts) > 1 else ''  # 品詞細分類1
+            pos0 = parts[0]
+            pos1 = parts[1] if len(parts) > 1 else ''
             base = token.base_form
 
-            # 名詞のみ、かつ意味のある細分類のみ
             if pos0 != '名詞':
                 continue
-            # 除外する名詞細分類
             if pos1 in ('代名詞', '非自立', '数', '接尾', 'サ変接続'):
                 continue
             if len(base) < min_len:
                 continue
             if base in JP_STOP:
                 continue
-            if re.match(r'^[0-9０-９]+$', base):  # 数字のみ除外
+            if re.match(r'^[0-9０-９]+$', base):
                 continue
-
             words.append(base)
     else:
-        # fallback: 2文字以上の漢字・カタカナ連続
         words = re.findall(r'[一-龯]{2,}|[ァ-ヶー]{3,}', text)
         words = [w for w in words if w not in JP_STOP]
 
-    # 英単語（3文字以上、大文字始まりの固有名詞は原形で保持）
     en_words = re.findall(r'[a-zA-Z]{3,}', text)
     words += [w.lower() for w in en_words if w.lower() not in EN_STOP]
 
@@ -122,7 +130,6 @@ def _extract_keywords(text: str, min_len: int = 2) -> list[str]:
 
 
 def _extract_demo(text: str) -> list[str]:
-    """属性ワードを抽出"""
     found = []
     for pattern in DEMO_PATTERNS:
         found.extend(re.findall(pattern, text))
@@ -130,7 +137,6 @@ def _extract_demo(text: str) -> list[str]:
 
 
 def _extract_pain(text: str) -> list[str]:
-    """悩み・ニーズワードを抽出"""
     return [w for w in PAIN_WORDS if w in text]
 
 
@@ -141,18 +147,18 @@ class AudienceResult:
     seed_posts_count: int
     comments_analyzed: int
 
-    # 生の声（コメント・引用から）
     top_keywords: list[tuple[str, int]] = field(default_factory=list)
     top_hashtags: list[tuple[str, int]] = field(default_factory=list)
     questions: list[str] = field(default_factory=list)
     pain_points: list[tuple[str, int]] = field(default_factory=list)
     demographics: list[tuple[str, int]] = field(default_factory=list)
 
-    # バズ投稿自体のキーワード（コンテンツ傾向）
     viral_keywords: list[tuple[str, int]] = field(default_factory=list)
     viral_hashtags: list[tuple[str, int]] = field(default_factory=list)
 
-    # ネタ候補
+    # バズ投稿サンプル（UIで表示用）
+    seed_posts: list[dict] = field(default_factory=list)
+
     topic_suggestions: list[str] = field(default_factory=list)
 
     raw_comments: list[str] = field(default_factory=list)
@@ -202,12 +208,18 @@ def analyze_audience(
 
     since = (datetime.utcnow() - timedelta(days=days)).strftime('%Y-%m-%d')
 
-    # ① バズ投稿を検索
+    # ① バズ投稿を検索（スパム除外 + 日本語限定）
     if progress_callback:
         progress_callback('search', 0, f'「{seed_keyword}」のバズ投稿を検索中...')
 
-    query = f"{seed_keyword} min_faves:{min_faves} -filter:replies since:{since}"
-    seed_tweets = client.search_all_tweets(query, max_results=max_seed_posts)
+    # APIレベルでのスパム除外：キャンペーン・懸賞系を除外、日本語限定
+    spam_exclude = '-プレゼント -懸賞 -キャンペーン -RTで当 -フォロリポ lang:ja'
+    query = f"{seed_keyword} min_faves:{min_faves} -filter:replies since:{since} {spam_exclude}"
+
+    raw_tweets = client.search_all_tweets(query, max_results=max_seed_posts * 3)
+
+    # クライアントサイドでさらにスパム判定（2重フィルタ）
+    seed_tweets = [t for t in raw_tweets if not _is_spam(t)][:max_seed_posts]
     result.seed_posts_count = len(seed_tweets)
 
     if not seed_tweets:
@@ -216,7 +228,7 @@ def analyze_audience(
         result.elapsed_sec = _time.time() - start
         return result
 
-    # バズ投稿のテキストを分析
+    # バズ投稿自体を解析（コンテンツの傾向を把握する）
     viral_kw_counter: Counter = Counter()
     viral_ht_counter: Counter = Counter()
 
@@ -228,7 +240,21 @@ def analyze_audience(
     result.viral_keywords = viral_kw_counter.most_common(30)
     result.viral_hashtags = viral_ht_counter.most_common(20)
 
-    # ② 各バズ投稿のコメント（リプライ）を収集
+    # バズ投稿サンプル（UI表示用：いいね順で上位5件）
+    sorted_posts = sorted(seed_tweets, key=lambda t: t.get('favorite_count', 0), reverse=True)
+    result.seed_posts = [
+        {
+            'text': (tw.get('full_text', '') or tw.get('text', ''))[:200],
+            'likes': tw.get('favorite_count', 0),
+            'retweets': tw.get('retweet_count', 0),
+            'views': tw.get('views_count', 0),
+            'author': tw.get('user', {}).get('screen_name', ''),
+            'url': f"https://x.com/{tw.get('user', {}).get('screen_name', 'i')}/status/{tw.get('id_str', '')}",
+        }
+        for tw in sorted_posts[:5]
+    ]
+
+    # ② 各バズ投稿のコメントを収集
     kw_counter: Counter = Counter()
     ht_counter: Counter = Counter()
     pain_counter: Counter = Counter()
@@ -276,7 +302,6 @@ def analyze_audience(
     result.pain_points = [(k, v) for k, v in pain_counter.most_common(15) if v > 0]
     result.demographics = [(k, v) for k, v in demo_counter.most_common(15) if v > 0]
 
-    # 質問を重複排除して最大20件
     seen = set()
     for q in all_questions:
         q = q.strip()
@@ -288,9 +313,13 @@ def analyze_audience(
 
     result.raw_comments = all_comments[:100]
 
-    # ③ ネタ候補を生成
+    # ③ ネタ候補を生成（バズ投稿キーワード＋コメントのペイン双方を活用）
     result.topic_suggestions = _generate_topics(
-        seed_keyword, result.top_keywords, result.pain_points, result.questions
+        seed_keyword,
+        keywords=result.top_keywords,
+        pains=result.pain_points,
+        questions=result.questions,
+        viral_keywords=result.viral_keywords,
     )
 
     result.api_calls = client._call_count
@@ -304,42 +333,57 @@ def _generate_topics(
     keywords: list[tuple[str, int]],
     pains: list[tuple[str, int]],
     questions: list[str],
+    viral_keywords: list[tuple[str, int]] = None,
 ) -> list[str]:
-    """頻出ワード×悩みパターンからネタ候補を生成"""
+    """
+    バズる投稿の「型」×キーワードでネタ候補を生成する。
+    コメントの生テキストをそのまま流用しない。
+    """
     topics = []
-    top_kws = [k for k, _ in keywords[:10]]
-    top_pains = [k for k, _ in pains[:5]]
 
-    # 質問ベースのネタ
-    for q in questions[:5]:
-        if len(q) > 8:
-            topics.append(f"【Q&A型】{q}")
+    # バズ投稿のキーワードを優先、なければコメントのキーワード
+    source_kws = [k for k, _ in (viral_keywords or keywords)[:15] if k != seed and len(k) >= 2]
+    comment_kws = [k for k, _ in keywords[:10] if k != seed and len(k) >= 2]
 
-    # キーワード×悩みの組み合わせ
-    pain_templates = [
-        '{seed}で{pain}人が最初にやるべきこと',
-        '{seed}が{pain}理由と解決策',
-        '{kw}で{seed}をうまくやる方法',
-        '{seed}初心者が陥る{kw}の罠',
-        '{kw}を使った{seed}の具体的なやり方',
-    ]
+    kw1 = source_kws[0] if source_kws else seed
+    kw2 = source_kws[1] if len(source_kws) > 1 else kw1
+    kw3 = source_kws[2] if len(source_kws) > 2 else kw1
+    pain_word = pains[0][0] if pains else None
 
-    kw = top_kws[0] if top_kws else seed
-    pain = top_pains[0] if top_pains else 'うまくいかない'
+    # ── 型1: 経験談・告白型（リアルさでバズる）
+    topics.append(f"{seed}を本気でやって気づいた「やめてよかったこと」")
+    topics.append(f"「{kw1}」について正直に言う。{seed}の現実")
+    topics.append(f"{seed}を1年やった人間が、今ゼロに戻るなら最初にやること")
 
-    for tmpl in pain_templates:
-        t = tmpl.format(seed=seed, kw=kw, pain=pain)
-        topics.append(t)
+    # ── 型2: 反論・逆張り型（議論を呼ぶ）
+    topics.append(f"「{seed}は{kw1}が大事」は半分ウソ。本当に効くのは〇〇")
+    topics.append(f"みんなが信じてる{seed}の「常識」、実は逆効果だった")
 
-    # 属性 × シード
-    attribute_templates = [
-        '会社員が{seed}で月収を増やす方法',
-        '初心者が{seed}で結果を出した話',
-        '{seed}を3ヶ月でマスターした具体的なステップ',
-        '失敗から学んだ{seed}の本当のコツ',
-        '{seed}で変わった実体験（数字で証明）',
-    ]
-    for tmpl in attribute_templates:
-        topics.append(tmpl.format(seed=seed))
+    # ── 型3: 対比・格差型（共感と危機感を生む）
+    if len(source_kws) >= 2:
+        topics.append(f"{seed}で成果が出る人と出ない人。違いは「{kw1}」だけ")
+    topics.append(f"同じ{seed}をやって、伸びた人と伸びなかった人の差")
+
+    # ── 型4: リスト・保存型（拡散されやすい）
+    topics.append(f"{seed}初心者が最初の3ヶ月でやるべき5つのこと")
+    topics.append(f"今すぐやめるべき{seed}の習慣。上位3位を公開")
+    if len(source_kws) >= 2:
+        topics.append(f"{seed}で使える「{kw1}×{kw2}」の組み合わせ術")
+
+    # ── 型5: 数字・証明型（信頼を生む）
+    topics.append(f"{seed}を90日続けた結果を正直に公開します")
+    if kw3:
+        topics.append(f"「{kw3}」に本気で取り組んで変わった{seed}の話")
+
+    # ── 型6: ペイン解消型（悩み検索からの流入）
+    if pain_word:
+        topics.append(f"{pain_word}なら、まず{seed}の「{kw1}」を見直してみて")
+    else:
+        topics.append(f"{seed}がうまくいかない人の99%が見落としていること")
+
+    # ── 型7: 問いかけ型（コメントを引き出す）
+    if comment_kws:
+        ck = comment_kws[0]
+        topics.append(f"あなたの{seed}、「{ck}」になってませんか？")
 
     return topics[:15]
