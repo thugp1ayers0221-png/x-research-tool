@@ -102,7 +102,8 @@ def _extract_questions(text: str) -> list[str]:
         if len(s) < 8:
             continue
         if ('?' in s or '？' in s or
-                any(w in s for w in ['知りたい', 'どうすれば', 'どうやって', 'ですか', 'できますか', 'やり方'])):
+                any(w in s for w in ['知りたい', 'どうすれば', 'どうやって', 'できますか', 'やり方']) or
+                re.search(r'ですか[？?]|ですか$|ますか[？?]|ますか$', s)):
             results.append(s)
     return results
 
