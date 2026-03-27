@@ -759,16 +759,18 @@ with tab6:
         with pc3:
             p_max_f = st.number_input("フォロワー最大", min_value=1000, value=10000, step=1000)
 
-        pa1, pa2, pa3 = st.columns(3)
+        pa1, pa2 = st.columns(2)
         with pa1:
             p_users = st.slider("サンプルユーザー数", min_value=50, max_value=500, value=500, step=50)
         with pa2:
             p_likes = st.slider("いいね収集数/人", min_value=20, max_value=100, value=100, step=20)
-        with pa3:
-            st.markdown("")
-            st.caption(f"推定APIコール: 約{p_users + (p_likes // 20) * p_users:,}回 ／ 推定コスト: 約{((p_users + (p_likes // 20) * p_users) * 0.0002 * 150):.0f}円")
 
         p_submitted = st.form_submit_button("🧬 ペルソナ調査を開始", use_container_width=True, type="primary")
+
+    # フォーム外でリアルタイム更新（スライダー操作即時反映）
+    _api_calls = p_users + (p_likes // 20) * p_users
+    _cost_jpy = _api_calls * 0.0002 * 150
+    st.caption(f"推定APIコール: 約{_api_calls:,}回 ／ 推定コスト: 約{_cost_jpy:.0f}円")
 
     if p_submitted:
         bio_kws = [k.strip() for k in p_keywords_raw.split(",") if k.strip()]
