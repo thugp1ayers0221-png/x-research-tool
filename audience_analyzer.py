@@ -91,10 +91,20 @@ def _extract_hashtags(text: str) -> list[str]:
 
 
 def _extract_questions(text: str) -> list[str]:
-    sentences = re.split(r'[。！!?\n]', text)
-    return [s.strip() for s in sentences
-            if ('?' in s or '？' in s or
-                any(w in s for w in ['知りたい', 'どうすれば', 'どうやって', 'ですか', 'できますか', 'やり方']))]
+    # 先頭の@メンション（リプライ宛先）を除去し、URL・@メンションもクリーン
+    cleaned = re.sub(r'^(@\w+\s*)+', '', text.strip())
+    cleaned = re.sub(r'https?://\S+', '', cleaned)
+    cleaned = re.sub(r'@\w+', '', cleaned).strip()
+    sentences = re.split(r'[。！!?\n]', cleaned)
+    results = []
+    for s in sentences:
+        s = s.strip()
+        if len(s) < 8:
+            continue
+        if ('?' in s or '？' in s or
+                any(w in s for w in ['知りたい', 'どうすれば', 'どうやって', 'ですか', 'できますか', 'やり方'])):
+            results.append(s)
+    return results
 
 
 def _extract_keywords(text: str, min_len: int = 2) -> list[str]:
