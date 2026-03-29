@@ -1,4 +1,4 @@
-"""ネタ発掘 - 競合/参考アカウントのいいね傾向からコンテンツヒントを抽出"""
+"""ネタ発掘 - 競合/参考アカウントの投稿傾向からコンテンツヒントを抽出"""
 import re
 import time
 from collections import Counter
@@ -69,13 +69,13 @@ def _generate_neta(
 @dataclass
 class NetaResult:
     handle: str
-    likes_count: int
+    post_count: int
 
     top_keywords: list[tuple[str, int]] = field(default_factory=list)
     top_hashtags: list[tuple[str, int]] = field(default_factory=list)
     topic_clusters: dict = field(default_factory=dict)
     neta_suggestions: list[str] = field(default_factory=list)
-    sample_liked_posts: list[dict] = field(default_factory=list)
+    sample_posts: list[dict] = field(default_factory=list)
 
     api_calls: int = 0
     cost_jpy: float = 0.0
@@ -85,7 +85,7 @@ class NetaResult:
 def analyze_neta(
     api_key: str,
     handle: str,
-    max_likes: int = 100,
+    max_posts: int = 100,
     progress_callback: Optional[Callable] = None,
 ) -> NetaResult:
     import time as _time
@@ -100,18 +100,13 @@ def analyze_neta(
     profile = client.get_user_profile(handle)
     uid = str(profile.get("id_str") or profile.get("id", ""))
 
-    result = NetaResult(handle=handle, likes_count=0)
+    result = NetaResult(handle=handle, post_count=0)
 
-    # ① いいねした投稿を取得
-    _cb(0.2, f"いいきした投稿を取得中（最大{max_likes}件）...")
-    liked_tweets = client.get_all_tweets_from_path(f"/twitter/user/{uid}/likes", max_results=max_likes)
+    # ① タイムライン投稿を取得
+    _cb(0.2, f"投稿を取得中（最大{max_posts}件）...")
+    liked_tweets = client.get_all_tweets_from_path(f"/twitter/user/{uid}/tweets", max_results=max_posts)
 
-    # いいねが取れない場合はタイムラインにフォールバック
-    if not liked_tweets:
-        _cb(0.3, "いいねが非公開のため、タイムライン投稿で代替分析中...")
-        liked_tweets = client.get_all_tweets_from_path(f"/twitter/user/{uid}/tweets", max_results=max_likes)
-
-    result.likes_count = len(liked_tweets)
+    result.post_count = len(liked_tweets)
 
     # ② テキスト分析
     _cb(0.6, "コンテンツ傾向を分析中...")
@@ -142,7 +137,7 @@ def analyze_neta(
 
     # ⑤ サンプル投稿（いいね数上位）
     top_sample = sorted(liked_tweets, key=lambda t: t.get("favorite_count", 0) or 0, reverse=True)[:8]
-    result.sample_liked_posts = [
+    result.sample_posts = [
         {
             "text": (t.get("full_text", "") or t.get("text", ""))[:100],
             "likes": t.get("favorite_count", 0) or 0,

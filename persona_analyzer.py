@@ -163,7 +163,7 @@ def analyze_persona(
     bio_keywords  : 検索キーワード（プロフィール的な語）
     min/max_followers : フォロワー数フィルタ
     target_users  : 収集目標ユーザー数
-    likes_per_user: 1人あたりいいね収集数（5ページ×20件）
+    likes_per_user: 1人あたり投稿収集数（5ページ×20件）
     """
     client = SocialDataClient(api_key)
     result = PersonaResult()

@@ -226,7 +226,7 @@ with tab1:
 # ════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### @usernameを入れて分析ボタンを押すだけ")
-    st.caption("プロフィール → 投稿傾向 → フォロワー属性 → 類似アカウント → いいね傾向 まで自動で実行します")
+    st.caption("プロフィール → 投稿傾向 → フォロワー属性 → 類似アカウント まで自動で実行します")
 
     ac_col1, ac_col2 = st.columns([3, 1])
     with ac_col1:
@@ -257,7 +257,6 @@ with tab2:
                 handle=handle,
                 max_followers=ac_max_followers,
                 max_tweets=60,
-                max_likes=50,
                 progress_callback=on_ac_prog,
             )
             ac_prog.empty()
@@ -381,22 +380,6 @@ with tab2:
             else:
                 st.caption("類似アカウントが見つかりませんでした")
 
-        # ── いいね傾向
-        la = ac.likes_analysis
-        if la and la.get("count", 0) > 0:
-            st.divider()
-            st.markdown(f"#### ❤️ いいね傾向（{la['count']}件から分析）")
-            ll, lr = st.columns(2)
-            with ll:
-                st.markdown("**いいねしている投稿の頻出ワード**")
-                if la.get("top_keywords"):
-                    st.markdown(" ".join([f"`{w}`" for w, _ in la["top_keywords"][:15]]))
-            with lr:
-                st.markdown("**よくいいねするハッシュタグ**")
-                if la.get("top_hashtags"):
-                    st.markdown(" ".join([f"`#{h}`" for h, _ in la["top_hashtags"][:10]]))
-        else:
-            st.info("💡 いいねが非公開または0件のためスキップしました")
 
 
 # ════════════════════════════════════════════════════════════
@@ -560,15 +543,15 @@ with tab3:
 # ════════════════════════════════════════════════════════════
 with tab4:
     st.markdown("#### 参考にしたいアカウントを入れて分析ボタンを押すだけ")
-    st.caption("そのアカウントのいいね傾向 → トピッククラスター分析 → 「このアカウントが好むコンテンツ＝ネタ候補」を抽出します")
+    st.caption("そのアカウントの投稿傾向 → トピッククラスター分析 → 「このアカウントが好むコンテンツ＝ネタ候補」を抽出します")
 
     n_col1, n_col2 = st.columns([3, 1])
     with n_col1:
         n_handle = st.text_input("アカウント名", placeholder="例: competitor_account（@なし）")
     with n_col2:
-        n_max_likes = st.selectbox("取得件数", [50, 100, 200], index=1)
+        n_max_posts = st.selectbox("取得件数", [50, 100, 200], index=1)
 
-    _n_api_calls = 1 + n_max_likes // 20
+    _n_api_calls = 1 + n_max_posts // 20
     _n_cost_jpy = _n_api_calls * 0.0002 * 150
     st.caption(f"推定APIコール: 約{_n_api_calls:,}回 ／ 推定コスト: 約{_n_cost_jpy:.0f}円")
 
@@ -589,7 +572,7 @@ with tab4:
             n_result = analyze_neta(
                 api_key=api_key,
                 handle=handle_n,
-                max_likes=n_max_likes,
+                max_posts=n_max_posts,
                 progress_callback=on_n_prog,
             )
             n_prog.empty()
@@ -603,7 +586,7 @@ with tab4:
 
         st.divider()
         nm1, nm2, nm3 = st.columns(3)
-        nm1.metric("分析した投稿数", f"{nr.likes_count}件")
+        nm1.metric("分析した投稿数", f"{nr.post_count}件")
         nm2.metric("APIコール数", f"{nr.api_calls}回")
         nm3.metric("推定コスト", f"約{nr.cost_jpy:.0f}円")
 
@@ -652,7 +635,7 @@ with tab4:
                 nc2.markdown(f"- {t}")
 
         with st.expander("📌 エンゲージメント高い投稿サンプル"):
-            for p in nr.sample_liked_posts:
+            for p in nr.sample_posts:
                 st.markdown(
                     f"❤️ {p['likes']:,} &nbsp; [@{p['author']}]({p['url']})  \n"
                     f"{p['text']}"
@@ -953,7 +936,7 @@ with tab6:
             bigram_col, trigram_col = st.columns(2)
             with bigram_col:
                 st.markdown("#### 🔗 頻出フレーズ（2語）TOP20")
-                st.caption("いいね投稿に繰り返し登場する2語の組み合わせ")
+                st.caption("ターゲット投稿に繰り返し登場する2語の組み合わせ")
                 if pr.bigrams:
                     max_bc = pr.bigrams[0][1] if pr.bigrams else 1
                     for phrase, cnt in pr.bigrams[:20]:

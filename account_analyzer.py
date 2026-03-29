@@ -1,4 +1,4 @@
-"""アカウント丸裸分析 - フォロワー属性・投稿傾向・類似アカウント・いいね傾向"""
+"""アカウント丸裸分析 - フォロワー属性・投稿傾向・類似アカウント"""
 import re
 import time
 from collections import Counter
@@ -170,9 +170,6 @@ class AccountResult:
     # 類似アカウント
     similar_accounts: list[dict] = field(default_factory=list)
 
-    # いいね傾向（取得できた場合）
-    likes_analysis: dict = field(default_factory=dict)
-
     api_calls: int = 0
     cost_jpy: float = 0.0
     elapsed_sec: float = 0.0
@@ -185,7 +182,6 @@ def analyze_account(
     handle: str,
     max_followers: int = 200,
     max_tweets: int = 60,
-    max_likes: int = 50,
     progress_callback: Optional[Callable] = None,
 ) -> AccountResult:
     import time as _time
@@ -259,25 +255,6 @@ def analyze_account(
                 sim["theme_overlap"] = sorted(target_kws & sim_top)[:5]
             except Exception:
                 pass
-
-    # ⑤ いいね傾向（取得できれば）
-    _cb(0.85, "いいね傾向を分析中...")
-    try:
-        likes_tweets = client.get_all_tweets_from_path(f"/twitter/user/{uid}/likes", max_results=max_likes)
-        if likes_tweets:
-            kw_counter = Counter()
-            ht_counter = Counter()
-            for tw in likes_tweets:
-                text = tw.get("full_text", "") or tw.get("text", "")
-                kw_counter.update(_extract_keywords(text))
-                ht_counter.update(_extract_hashtags(text))
-            result.likes_analysis = {
-                "count": len(likes_tweets),
-                "top_keywords": kw_counter.most_common(20),
-                "top_hashtags": ht_counter.most_common(10),
-            }
-    except Exception:
-        result.likes_analysis = {}
 
     result.api_calls = client._call_count
     result.cost_jpy = client.estimated_cost_jpy
