@@ -560,7 +560,7 @@ with tab4:
     with n_col1:
         n_handle = st.text_input("アカウント名", placeholder="例: competitor_account（@なし）")
     with n_col2:
-        n_max_posts = st.selectbox("取得件数", [50, 100, 200], index=1)
+        n_max_posts = st.selectbox("取得件数", [100, 200, 500, 1000], index=1)
 
     _n_api_calls = 1 + n_max_posts // 20
     _n_cost_jpy = _n_api_calls * 0.0002 * 150
@@ -648,7 +648,7 @@ with tab4:
             else:
                 nc2.markdown(f"- {t}")
 
-        with st.expander("📌 インプレッション高い投稿サンプル（インプ順）"):
+        with st.expander(f"📌 インプレッション高い投稿 TOP8（取得{nr.post_count}件の中から）"):
             for p in nr.sample_posts:
                 st.markdown(
                     f"👁 {p.get('views', 0):,} &nbsp; ❤️ {p['likes']:,} &nbsp; [@{p['author']}]({p['url']})  \n"

@@ -130,15 +130,20 @@ def analyze_neta(
 
     result.post_count = len(liked_tweets)
 
-    # ② テキスト分析
+    # ② テキスト分析（インプレッション加重）
     _cb(0.6, "コンテンツ傾向を分析中...")
     kw_counter: Counter = Counter()
     ht_counter: Counter = Counter()
 
     for tw in liked_tweets:
         text = tw.get("full_text", "") or tw.get("text", "")
-        kw_counter.update(_extract_keywords(text))
-        ht_counter.update(_extract_hashtags(text))
+        views = tw.get("views_count", 0) or 0
+        # インプ加重: 1000インプ単位で+1（最低weight=1）
+        weight = max(1, 1 + views // 1000)
+        for kw in _extract_keywords(text):
+            kw_counter[kw] += weight
+        for ht in _extract_hashtags(text):
+            ht_counter[ht] += weight
 
     # ストップワード除去
     for sw in list(kw_counter.keys()):
