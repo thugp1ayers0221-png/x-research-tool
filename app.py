@@ -403,7 +403,7 @@ with tab3:
         with pc3:
             p_max_comments = st.selectbox("コメントの最大取得数", [30, 50, 100], index=1)
 
-    _p_api_calls = 1 + p_max_rt // 20 + p_max_quotes // 20 + p_max_comments // 20
+    _p_api_calls = 1 + p_max_rt // 20 + p_max_quotes // 20 + 1  # コメントは get_tweet_comments で1コール固定
     _p_cost_jpy = _p_api_calls * 0.0002 * 150
     st.caption(f"推定APIコール: 約{_p_api_calls:,}回 ／ 推定コスト: 約{_p_cost_jpy:.0f}円")
 
