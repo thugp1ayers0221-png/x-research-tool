@@ -234,7 +234,7 @@ with tab2:
     with ac_col2:
         ac_max_followers = st.selectbox("フォロワーサンプル数", [100, 200, 300], index=1)
 
-    _ac_api_calls = 15 + ac_max_followers // 20
+    _ac_api_calls = 15 + ac_max_followers // 20 + 10  # +10: 類似アカウント投稿テーマ照合
     _ac_cost_jpy = _ac_api_calls * 0.0002 * 150
     st.caption(f"推定APIコール: 約{_ac_api_calls:,}回 ／ 推定コスト: 約{_ac_cost_jpy:.0f}円")
 
