@@ -80,6 +80,15 @@ st.markdown("""
 
 api_key = os.getenv("SOCIALDATA_API_KEY", "")
 
+
+def _fmt_cost(jpy: float) -> str:
+    """コスト表示: 1円未満は '< 1' と表示（0円誤表示を防ぐ）"""
+    if jpy <= 0:
+        return "0"
+    if jpy < 1:
+        return "< 1"
+    return f"{jpy:.0f}"
+
 st.title("🔍 X アナライザー")
 if not api_key:
     st.error("⚠️ SOCIALDATA_API_KEY が未設定です。`.env` ファイルに設定してください。")
@@ -118,7 +127,7 @@ with tab1:
 
     _b_api_calls = max(1, (b_max_posts * 3 + 99) // 100) + (b_max_comments // 20) * b_max_posts
     _b_cost_jpy = _b_api_calls * 0.0002 * 150
-    st.caption(f"推定APIコール: 約{_b_api_calls:,}回 ／ 推定コスト: 約{_b_cost_jpy:.0f}円")
+    st.caption(f"推定APIコール: 約{_b_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_b_cost_jpy)}円")
 
     b_submitted = st.button("🔍 バズ探し開始", use_container_width=True, type="primary", key="btn_buzz")
 
@@ -157,7 +166,7 @@ with tab1:
         m1.metric("バズ投稿数", f"{br.seed_posts_count}件")
         m2.metric("収集コメント数", f"{br.comments_analyzed}件")
         m3.metric("APIコール数", f"{br.api_calls}回")
-        m4.metric("推定コスト", f"約{br.cost_jpy:.0f}円")
+        m4.metric("推定コスト", f"約{_fmt_cost(br.cost_jpy)}円")
 
         st.divider()
         left, right = st.columns(2)
@@ -236,7 +245,7 @@ with tab2:
 
     _ac_api_calls = 15 + ac_max_followers // 20 + 10  # +10: 類似アカウント投稿テーマ照合
     _ac_cost_jpy = _ac_api_calls * 0.0002 * 150
-    st.caption(f"推定APIコール: 約{_ac_api_calls:,}回 ／ 推定コスト: 約{_ac_cost_jpy:.0f}円")
+    st.caption(f"推定APIコール: 約{_ac_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_ac_cost_jpy)}円")
 
     ac_submitted = st.button("👤 丸裸分析を開始", use_container_width=True, type="primary", key="btn_account")
 
@@ -245,7 +254,9 @@ with tab2:
             st.error("アカウント名を入力してください")
             st.stop()
 
-        handle = ac_handle.lstrip("@")
+        import re as _re
+        _url_match = _re.search(r"x\.com/([A-Za-z0-9_]+)", ac_handle)
+        handle = _url_match.group(1) if _url_match else ac_handle.lstrip("@")
         ac_prog = st.progress(0, text="準備中...")
 
         def on_ac_prog(pct: float, msg: str):
@@ -277,7 +288,7 @@ with tab2:
         pc3.metric("総投稿数", f"{ac.tweet_count:,}")
         pc4.metric("平均いいね", f"{ac.tweet_analysis.get('avg_likes', 0):.0f}")
         pc5.metric("APIコール数", f"{ac.api_calls}回")
-        pc6.metric("推定コスト", f"約{ac.cost_jpy:.0f}円")
+        pc6.metric("推定コスト", f"約{_fmt_cost(ac.cost_jpy)}円")
 
         st.info(f"**@{ac.handle}** ({ac.name})　{ac.bio if ac.bio else ''}")
 
@@ -405,7 +416,7 @@ with tab3:
 
     _p_api_calls = 1 + p_max_rt // 20 + p_max_quotes // 20 + 1  # コメントは get_tweet_comments で1コール固定
     _p_cost_jpy = _p_api_calls * 0.0002 * 150
-    st.caption(f"推定APIコール: 約{_p_api_calls:,}回 ／ 推定コスト: 約{_p_cost_jpy:.0f}円")
+    st.caption(f"推定APIコール: 約{_p_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_p_cost_jpy)}円")
 
     p_submitted = st.button("🎯 投稿を分析", use_container_width=True, type="primary", key="btn_post")
 
@@ -553,7 +564,7 @@ with tab4:
 
     _n_api_calls = 1 + n_max_posts // 20
     _n_cost_jpy = _n_api_calls * 0.0002 * 150
-    st.caption(f"推定APIコール: 約{_n_api_calls:,}回 ／ 推定コスト: 約{_n_cost_jpy:.0f}円")
+    st.caption(f"推定APIコール: 約{_n_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_n_cost_jpy)}円")
 
     n_submitted = st.button("💡 ネタを発掘", use_container_width=True, type="primary", key="btn_neta")
 
@@ -562,7 +573,10 @@ with tab4:
             st.error("アカウント名を入力してください")
             st.stop()
 
-        handle_n = n_handle.lstrip("@")
+        # URL形式（https://x.com/username）でも受け付ける
+        import re as _re
+        _url_match = _re.search(r"x\.com/([A-Za-z0-9_]+)", n_handle)
+        handle_n = _url_match.group(1) if _url_match else n_handle.lstrip("@")
         n_prog = st.progress(0, text="準備中...")
 
         def on_n_prog(pct: float, msg: str):
@@ -588,7 +602,7 @@ with tab4:
         nm1, nm2, nm3 = st.columns(3)
         nm1.metric("分析した投稿数", f"{nr.post_count}件")
         nm2.metric("APIコール数", f"{nr.api_calls}回")
-        nm3.metric("推定コスト", f"約{nr.cost_jpy:.0f}円")
+        nm3.metric("推定コスト", f"約{_fmt_cost(nr.cost_jpy)}円")
 
         st.divider()
 
@@ -662,7 +676,7 @@ with tab5:
 
     _ar_api_calls = 1 + ar_max * 2
     _ar_cost_jpy = _ar_api_calls * 0.0002 * 150
-    st.caption(f"推定APIコール: 約{_ar_api_calls:,}回 ／ 推定コスト: 約{_ar_cost_jpy:.0f}円")
+    st.caption(f"推定APIコール: 約{_ar_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_ar_cost_jpy)}円")
 
     ar_submitted = st.button("📰 記事を探す", use_container_width=True, type="primary", key="btn_article")
 
@@ -695,7 +709,7 @@ with tab5:
         am1.metric("検索ヒット数", f"{ar.searched_count}件")
         am2.metric("記事取得数", f"{ar.articles_found}件")
         am3.metric("APIコール数", f"{ar.api_calls}回")
-        am4.metric("推定コスト", f"約{ar.cost_jpy:.0f}円")
+        am4.metric("推定コスト", f"約{_fmt_cost(ar.cost_jpy)}円")
 
         if not ar.articles:
             st.warning("記事が見つかりませんでした。キーワードや期間・いいね数を変えて試してください。")
@@ -787,7 +801,7 @@ with tab6:
     # フォーム外でリアルタイム更新（スライダー操作即時反映）
     _api_calls = p_users + (p_likes // 20) * p_users
     _cost_jpy = _api_calls * 0.0002 * 150
-    st.caption(f"推定APIコール: 約{_api_calls:,}回 ／ 推定コスト: 約{_cost_jpy:.0f}円")
+    st.caption(f"推定APIコール: 約{_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_cost_jpy)}円")
 
     if p_submitted:
         bio_kws = [k.strip() for k in p_keywords_raw.split(",") if k.strip()]
@@ -830,7 +844,7 @@ with tab6:
         pm1.metric("サンプルユーザー数", f"{pr.user_count:,}人")
         pm2.metric("収集投稿数", f"{pr.like_count:,}件")
         pm3.metric("抽出キーワード", f"{len(pr.top_keywords)}語")
-        pm4.metric("推定コスト", f"約{pr.estimated_cost_jpy:.0f}円")
+        pm4.metric("推定コスト", f"約{_fmt_cost(pr.estimated_cost_jpy)}円")
 
         if pr.errors:
             for err in pr.errors:
