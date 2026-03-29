@@ -877,7 +877,7 @@ with tab6:
                     use_container_width=True,
                 )
 
-        if not pr.top_keywords and not pr.pain_words:
+        if not pr.top_keywords:
             st.warning("データが収集できませんでした。キーワードや設定を変えて再試行してください。")
         else:
             st.divider()
