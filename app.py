@@ -648,10 +648,10 @@ with tab4:
             else:
                 nc2.markdown(f"- {t}")
 
-        with st.expander("📌 エンゲージメント高い投稿サンプル"):
+        with st.expander("📌 インプレッション高い投稿サンプル（インプ順）"):
             for p in nr.sample_posts:
                 st.markdown(
-                    f"❤️ {p['likes']:,} &nbsp; [@{p['author']}]({p['url']})  \n"
+                    f"👁 {p.get('views', 0):,} &nbsp; ❤️ {p['likes']:,} &nbsp; [@{p['author']}]({p['url']})  \n"
                     f"{p['text']}"
                 )
                 st.markdown("---")

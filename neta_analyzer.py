@@ -10,14 +10,16 @@ from audience_analyzer import _extract_keywords, _extract_hashtags, JP_STOP
 
 
 TOPIC_CLUSTERS = {
-    "思考法/マインドセット": ["思考", "メンタル", "マインド", "考え方", "習慣", "行動"],
-    "ビジネス/起業": ["ビジネス", "起業", "経営", "事業", "マネタイズ", "収益"],
-    "マーケティング/SNS": ["マーケ", "SNS", "集客", "ブランド", "発信", "フォロワー"],
-    "生産性/仕事術": ["生産性", "効率", "仕事", "タスク", "時間", "習慣"],
-    "お金/投資": ["投資", "資産", "収入", "副業", "節約", "お金"],
-    "AI/テクノロジー": ["AI", "ChatGPT", "Claude", "自動化", "テック", "ツール"],
-    "自己成長/学習": ["勉強", "学習", "スキル", "成長", "読書", "インプット"],
-    "人間関係/コミュニケーション": ["コミュニケーション", "人間関係", "影響力", "説得", "交渉"],
+    "思考法/マインドセット": ["思考", "メンタル", "マインド", "考え方", "習慣", "行動", "意識", "本質"],
+    "ビジネス/経営": ["ビジネス", "起業", "経営", "事業", "収益", "会社", "社内", "組織", "経営者", "社長", "企業"],
+    "財務/数字": ["売上", "赤字", "黒字", "利益", "コスト", "資金", "財務", "決算", "損益", "収支", "原価"],
+    "外食/小売/流通": ["吉野家", "すき家", "マクドナルド", "コンビニ", "飲食", "外食", "小売", "店舗", "チェーン", "流通", "tower"],
+    "マーケティング/集客": ["マーケ", "SNS", "集客", "ブランド", "発信", "フォロワー", "広告", "PR", "認知"],
+    "生産性/仕事術": ["生産性", "効率", "仕事", "タスク", "時間", "管理", "改善"],
+    "お金/投資": ["投資", "資産", "収入", "副業", "節約", "お金", "株", "不動産"],
+    "AI/テクノロジー": ["AI", "ChatGPT", "Claude", "自動化", "テック", "ツール", "DX", "システム"],
+    "自己成長/学習": ["勉強", "学習", "スキル", "成長", "読書", "インプット", "知識"],
+    "社会/業界": ["社会", "政治", "経済", "ニュース", "問題", "課題", "業界", "市場", "郊外", "地域"],
 }
 
 
@@ -37,31 +39,42 @@ def _generate_neta(
     top_hashtags: list[tuple[str, int]],
     cluster_scores: dict,
 ) -> list[str]:
-    top_kws = [k for k, _ in top_keywords[:10]]
+    top_kws = [k for k, _ in top_keywords[:15]]
     top_clusters = list(cluster_scores.keys())[:3]
     neta = []
 
-    # クラスターベースのネタ
-    templates = [
-        "【保存版】{kw}を使って{cluster}を加速する方法",
-        "{kw}と{kw2}の意外な共通点",
-        "{cluster}で成果を出している人がやっていること",
-        "なぜ{kw}ができる人は{cluster}でも結果を出せるのか",
-        "{kw}を習慣化したら人生が変わった話（具体的な数字で）",
-        "【永久保存版】{cluster}の本質を1ポストで説明する",
-        "{kw}の落とし穴：9割の人が知らない注意点",
-    ]
+    if len(top_kws) >= 2:
+        kw1 = top_kws[0]
+        kw2 = top_kws[1]
+        kw3 = top_kws[2] if len(top_kws) > 2 else top_kws[0]
+        kw4 = top_kws[3] if len(top_kws) > 3 else top_kws[1]
 
-    kw = top_kws[0] if top_kws else "ビジネス"
-    kw2 = top_kws[1] if len(top_kws) > 1 else "思考"
-    cluster = top_clusters[0] if top_clusters else "スキルアップ"
+        # 実際のキーワードベースで具体的なネタを生成
+        neta += [
+            f"{kw1}と{kw2}の本当の関係を誰も教えてくれない",
+            f"【{kw1}の真実】{kw2}が高い会社が必ずやっていること",
+            f"{kw1}を正しく理解している人が少なすぎる（{kw2}との違い）",
+            f"なぜ{kw2}が上がっても{kw1}が出るのか",
+            f"{kw1}・{kw2}・{kw3}を同時に語れる人が少ない理由",
+            f"【保存版】{kw1}の仕組みを図解で説明する",
+            f"{kw1}で失敗した企業に共通する3つのパターン",
+            f"{kw2}を改善しようとして{kw1}が悪化するパラドックス",
+            f"{kw3}と{kw4}、どちらを先に解決すべきか",
+            f"【{kw1}入門】知っておくべき基本を3分で説明する",
+        ]
 
-    for tmpl in templates:
-        neta.append(tmpl.format(kw=kw, kw2=kw2, cluster=cluster, handle=handle))
+    # クラスターが取れた場合のみ追加
+    if top_clusters:
+        cluster = top_clusters[0]
+        kw = top_kws[0] if top_kws else ""
+        neta += [
+            f"{cluster}の世界で今起きていること（{kw}の観点から）",
+            f"【{cluster}】大半の人が勘違いしていること",
+        ]
 
-    # 上位ハッシュタグからネタ
-    for ht, _ in top_hashtags[:3]:
-        neta.append(f"#{ht} について知っておくべき3つのこと")
+    # ハッシュタグがあれば追加
+    for ht, _ in top_hashtags[:2]:
+        neta.append(f"#{ht} が注目されている理由と今後の展望")
 
     return neta[:12]
 
@@ -104,7 +117,16 @@ def analyze_neta(
 
     # ① タイムライン投稿を取得
     _cb(0.2, f"投稿を取得中（最大{max_posts}件）...")
-    liked_tweets = client.get_all_tweets_from_path(f"/twitter/user/{uid}/tweets", max_results=max_posts)
+    raw_tweets = client.get_all_tweets_from_path(f"/twitter/user/{uid}/tweets", max_results=max_posts)
+
+    # 重複除去（id_strベース）
+    seen_ids: set = set()
+    liked_tweets = []
+    for t in raw_tweets:
+        tid = t.get("id_str") or str(t.get("id", ""))
+        if tid and tid not in seen_ids:
+            seen_ids.add(tid)
+            liked_tweets.append(t)
 
     result.post_count = len(liked_tweets)
 
@@ -135,11 +157,12 @@ def analyze_neta(
         handle, result.top_keywords, result.top_hashtags, result.topic_clusters
     )
 
-    # ⑤ サンプル投稿（いいね数上位）
-    top_sample = sorted(liked_tweets, key=lambda t: t.get("favorite_count", 0) or 0, reverse=True)[:8]
+    # ⑤ サンプル投稿（インプレッション上位 / 重複除去済み）
+    top_sample = sorted(liked_tweets, key=lambda t: t.get("views_count", 0) or 0, reverse=True)[:8]
     result.sample_posts = [
         {
             "text": (t.get("full_text", "") or t.get("text", ""))[:100],
+            "views": t.get("views_count", 0) or 0,
             "likes": t.get("favorite_count", 0) or 0,
             "author": (t.get("user") or {}).get("screen_name", ""),
             "url": f"https://x.com/{(t.get('user') or {}).get('screen_name', '_')}/status/{t.get('id_str', '')}",
