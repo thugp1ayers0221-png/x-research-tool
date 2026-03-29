@@ -101,27 +101,26 @@ with tab1:
     st.markdown("#### キーワードを入れて分析ボタンを押すだけ")
     st.caption("バズ投稿の検索 → コメント・引用RTの生の声 → ターゲットのニーズ → ネタ候補 まで自動で実行します")
 
-    with st.form("buzz_form"):
-        b_col1, b_col2, b_col3 = st.columns([3, 1, 1])
-        with b_col1:
-            buzz_keyword = st.text_input("キーワード", placeholder="例: 行動経済学, 副業, マーケティング")
-        with b_col2:
-            b_min_faves = st.number_input("最低いいね数", min_value=50, value=300, step=50)
-        with b_col3:
-            b_days = st.selectbox("期間", [7, 14, 30, 60, 90, 180, 270, 540], index=2, format_func=lambda d: f"直近{d}日")
+    b_col1, b_col2, b_col3 = st.columns([3, 1, 1])
+    with b_col1:
+        buzz_keyword = st.text_input("キーワード", placeholder="例: 行動経済学, 副業, マーケティング")
+    with b_col2:
+        b_min_faves = st.number_input("最低いいね数", min_value=50, value=300, step=50)
+    with b_col3:
+        b_days = st.selectbox("期間", [7, 14, 30, 60, 90, 180, 270, 540], index=2, format_func=lambda d: f"直近{d}日")
 
-        with st.expander("⚙️ 詳細設定"):
-            dc1, dc2 = st.columns(2)
-            with dc1:
-                b_max_posts = st.selectbox("バズ投稿数", [5, 10, 20, 50, 100, 200, 500, 1000], index=1)
-            with dc2:
-                b_max_comments = st.selectbox("コメント取得数/投稿", [20, 50, 100], index=1)
-
-        b_submitted = st.form_submit_button("🔍 バズ探し開始", use_container_width=True, type="primary")
+    with st.expander("⚙️ 詳細設定"):
+        dc1, dc2 = st.columns(2)
+        with dc1:
+            b_max_posts = st.selectbox("バズ投稿数", [5, 10, 20, 50, 100, 200, 500, 1000], index=1)
+        with dc2:
+            b_max_comments = st.selectbox("コメント取得数/投稿", [20, 50, 100], index=1)
 
     _b_api_calls = max(1, (b_max_posts * 3 + 99) // 100) + (b_max_comments // 20) * b_max_posts
     _b_cost_jpy = _b_api_calls * 0.0002 * 150
     st.caption(f"推定APIコール: 約{_b_api_calls:,}回 ／ 推定コスト: 約{_b_cost_jpy:.0f}円")
+
+    b_submitted = st.button("🔍 バズ探し開始", use_container_width=True, type="primary", key="btn_buzz")
 
     if b_submitted:
         if not buzz_keyword:
@@ -229,18 +228,17 @@ with tab2:
     st.markdown("#### @usernameを入れて分析ボタンを押すだけ")
     st.caption("プロフィール → 投稿傾向 → フォロワー属性 → 類似アカウント → いいね傾向 まで自動で実行します")
 
-    with st.form("account_form"):
-        ac_col1, ac_col2 = st.columns([3, 1])
-        with ac_col1:
-            ac_handle = st.text_input("アカウント名", placeholder="例: kii_analytics（@なし）")
-        with ac_col2:
-            ac_max_followers = st.selectbox("フォロワーサンプル数", [100, 200, 300], index=1)
-
-        ac_submitted = st.form_submit_button("👤 丸裸分析を開始", use_container_width=True, type="primary")
+    ac_col1, ac_col2 = st.columns([3, 1])
+    with ac_col1:
+        ac_handle = st.text_input("アカウント名", placeholder="例: kii_analytics（@なし）")
+    with ac_col2:
+        ac_max_followers = st.selectbox("フォロワーサンプル数", [100, 200, 300], index=1)
 
     _ac_api_calls = 15 + ac_max_followers // 20
     _ac_cost_jpy = _ac_api_calls * 0.0002 * 150
     st.caption(f"推定APIコール: 約{_ac_api_calls:,}回 ／ 推定コスト: 約{_ac_cost_jpy:.0f}円")
+
+    ac_submitted = st.button("👤 丸裸分析を開始", use_container_width=True, type="primary", key="btn_account")
 
     if ac_submitted:
         if not ac_handle:
@@ -393,26 +391,25 @@ with tab3:
     st.markdown("#### 投稿URLを入れて分析ボタンを押すだけ")
     st.caption("RTした人の属性 → 引用RTの反応パターン → コメントの声 → 「誰に届いたか」を可視化します")
 
-    with st.form("post_form"):
-        p_url = st.text_input(
-            "投稿URL",
-            placeholder="例: https://x.com/kii_analytics/status/1234567890"
-        )
+    p_url = st.text_input(
+        "投稿URL",
+        placeholder="例: https://x.com/kii_analytics/status/1234567890"
+    )
 
-        with st.expander("⚙️ 詳細設定"):
-            pc1, pc2, pc3 = st.columns(3)
-            with pc1:
-                p_max_rt = st.selectbox("RTした人の最大取得数", [50, 100, 200], index=1)
-            with pc2:
-                p_max_quotes = st.selectbox("引用RTの最大取得数", [30, 50, 100], index=1)
-            with pc3:
-                p_max_comments = st.selectbox("コメントの最大取得数", [30, 50, 100], index=1)
-
-        p_submitted = st.form_submit_button("🎯 投稿を分析", use_container_width=True, type="primary")
+    with st.expander("⚙️ 詳細設定"):
+        pc1, pc2, pc3 = st.columns(3)
+        with pc1:
+            p_max_rt = st.selectbox("RTした人の最大取得数", [50, 100, 200], index=1)
+        with pc2:
+            p_max_quotes = st.selectbox("引用RTの最大取得数", [30, 50, 100], index=1)
+        with pc3:
+            p_max_comments = st.selectbox("コメントの最大取得数", [30, 50, 100], index=1)
 
     _p_api_calls = 1 + p_max_rt // 20 + p_max_quotes // 20 + p_max_comments // 20
     _p_cost_jpy = _p_api_calls * 0.0002 * 150
     st.caption(f"推定APIコール: 約{_p_api_calls:,}回 ／ 推定コスト: 約{_p_cost_jpy:.0f}円")
+
+    p_submitted = st.button("🎯 投稿を分析", use_container_width=True, type="primary", key="btn_post")
 
     if p_submitted:
         if not p_url:
@@ -550,18 +547,17 @@ with tab4:
     st.markdown("#### 参考にしたいアカウントを入れて分析ボタンを押すだけ")
     st.caption("そのアカウントのいいね傾向 → トピッククラスター分析 → 「このアカウントが好むコンテンツ＝ネタ候補」を抽出します")
 
-    with st.form("neta_form"):
-        n_col1, n_col2 = st.columns([3, 1])
-        with n_col1:
-            n_handle = st.text_input("アカウント名", placeholder="例: competitor_account（@なし）")
-        with n_col2:
-            n_max_likes = st.selectbox("取得件数", [50, 100, 200], index=1)
-
-        n_submitted = st.form_submit_button("💡 ネタを発掘", use_container_width=True, type="primary")
+    n_col1, n_col2 = st.columns([3, 1])
+    with n_col1:
+        n_handle = st.text_input("アカウント名", placeholder="例: competitor_account（@なし）")
+    with n_col2:
+        n_max_likes = st.selectbox("取得件数", [50, 100, 200], index=1)
 
     _n_api_calls = 1 + n_max_likes // 20
     _n_cost_jpy = _n_api_calls * 0.0002 * 150
     st.caption(f"推定APIコール: 約{_n_api_calls:,}回 ／ 推定コスト: 約{_n_cost_jpy:.0f}円")
+
+    n_submitted = st.button("💡 ネタを発掘", use_container_width=True, type="primary", key="btn_neta")
 
     if n_submitted:
         if not n_handle:
@@ -656,22 +652,21 @@ with tab5:
     st.markdown("#### キーワード（任意）を入れて分析ボタンを押すだけ")
     st.caption("X Article を検索 → 本文・エンゲージメントを一括取得。トレンド記事のリサーチに使えます")
 
-    with st.form("article_form"):
-        ar_col1, ar_col2, ar_col3, ar_col4 = st.columns([3, 1, 1, 1])
-        with ar_col1:
-            ar_keyword = st.text_input("キーワード（空白でも可）", placeholder="例: マーケティング, 副業, AI")
-        with ar_col2:
-            ar_min_likes = st.number_input("最低いいね数", min_value=50, value=100, step=50)
-        with ar_col3:
-            ar_days = st.selectbox("期間", [7, 14, 30, 60, 90], index=2, format_func=lambda d: f"直近{d}日")
-        with ar_col4:
-            ar_max = st.selectbox("最大取得件数", [10, 20, 30], index=1)
-
-        ar_submitted = st.form_submit_button("📰 記事を探す", use_container_width=True, type="primary")
+    ar_col1, ar_col2, ar_col3, ar_col4 = st.columns([3, 1, 1, 1])
+    with ar_col1:
+        ar_keyword = st.text_input("キーワード（空白でも可）", placeholder="例: マーケティング, 副業, AI")
+    with ar_col2:
+        ar_min_likes = st.number_input("最低いいね数", min_value=50, value=100, step=50)
+    with ar_col3:
+        ar_days = st.selectbox("期間", [7, 14, 30, 60, 90], index=2, format_func=lambda d: f"直近{d}日")
+    with ar_col4:
+        ar_max = st.selectbox("最大取得件数", [10, 20, 30], index=1)
 
     _ar_api_calls = 1 + ar_max * 2
     _ar_cost_jpy = _ar_api_calls * 0.0002 * 150
     st.caption(f"推定APIコール: 約{_ar_api_calls:,}回 ／ 推定コスト: 約{_ar_cost_jpy:.0f}円")
+
+    ar_submitted = st.button("📰 記事を探す", use_container_width=True, type="primary", key="btn_article")
 
     if ar_submitted:
         ar_prog = st.progress(0, text="準備中...")
