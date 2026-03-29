@@ -230,7 +230,13 @@ def analyze_audience(
     raw_tweets = client.search_all_tweets(query, max_results=max_seed_posts * 3)
 
     # クライアントサイドでさらにスパム判定（2重フィルタ）
-    seed_tweets = [t for t in raw_tweets if not _is_spam(t)][:max_seed_posts]
+    # キーワードがポスト本文に含まれているものだけを通す（アカウント名・bio一致を除外）
+    kw_lower = seed_keyword.lower()
+    def _text_contains_keyword(tweet: dict) -> bool:
+        text = (tweet.get('full_text', '') or tweet.get('text', '')).lower()
+        return kw_lower in text
+
+    seed_tweets = [t for t in raw_tweets if not _is_spam(t) and _text_contains_keyword(t)][:max_seed_posts]
     result.seed_posts_count = len(seed_tweets)
 
     if not seed_tweets:
