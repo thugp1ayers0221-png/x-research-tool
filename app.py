@@ -354,12 +354,17 @@ with tab2:
         with col_similar:
             st.markdown("#### 🔗 類似アカウント")
             if ac.similar_accounts:
+                _kws = [w for w, _ in (ac.tweet_analysis.get("top_keywords") or [])[:30]]
                 for sim in ac.similar_accounts[:8]:
                     vmark = "✅ " if sim.get("verified") else ""
+                    bio_lower = sim['bio'].lower()
+                    matched = [w for w in _kws if w.lower() in bio_lower]
+                    reason = "　".join(f"`{w}`" for w in matched[:4]) if matched else "<span style='color:#aaa'>bio一致なし（X内部アルゴリズム）</span>"
                     st.markdown(
                         f"{vmark}**[{sim['name']}](https://x.com/{sim['handle']})** `@{sim['handle']}`  \n"
                         f"👥 {sim['followers']:,}  \n"
-                        f"<span style='color:#666;font-size:0.82rem'>{sim['bio'][:55]}</span>",
+                        f"<span style='color:#666;font-size:0.82rem'>{sim['bio'][:55]}</span>  \n"
+                        f"<span style='font-size:0.78rem;color:#888'>類似理由: </span>{reason}",
                         unsafe_allow_html=True
                     )
                     st.markdown("<hr style='margin:6px 0'>", unsafe_allow_html=True)
