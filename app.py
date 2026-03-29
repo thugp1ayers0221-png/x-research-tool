@@ -747,8 +747,8 @@ with tab5:
 # TAB 6: ペルソナ調査
 # ════════════════════════════════════════════════════════════
 with tab6:
-    st.markdown("#### ターゲット層のいいね行動からペルソナデータを収集")
-    st.caption("プロフィールキーワードでユーザーをサンプリング → いいね投稿を大量収集 → 興味・ペイン・インサイトの種を抽出します")
+    st.markdown("#### ターゲット層の投稿行動からペルソナデータを収集")
+    st.caption("プロフィールキーワードでユーザーをサンプリング → 投稿テキストを大量収集 → 興味・ペイン・インサイトの種を抽出します")
 
     with st.form("persona_form"):
         pc1, pc2, pc3 = st.columns([4, 1, 1])
@@ -767,7 +767,7 @@ with tab6:
         with pa1:
             p_users = st.slider("サンプルユーザー数", min_value=50, max_value=500, value=500, step=50)
         with pa2:
-            p_likes = st.slider("いいね収集数/人", min_value=20, max_value=100, value=100, step=20)
+            p_likes = st.slider("投稿収集数/人", min_value=20, max_value=100, value=100, step=20)
 
         p_submitted = st.form_submit_button("🧬 ペルソナ調査を開始", use_container_width=True, type="primary")
 
@@ -815,7 +815,7 @@ with tab6:
         # ─── サマリー ────────────────────────────────────────
         pm1, pm2, pm3, pm4 = st.columns(4)
         pm1.metric("サンプルユーザー数", f"{pr.user_count:,}人")
-        pm2.metric("収集いいね数", f"{pr.like_count:,}件")
+        pm2.metric("収集投稿数", f"{pr.like_count:,}件")
         pm3.metric("抽出キーワード", f"{len(pr.top_keywords)}語")
         pm4.metric("推定コスト", f"約{pr.estimated_cost_jpy:.0f}円")
 
@@ -856,8 +856,8 @@ with tab6:
         with dl3:
             if pr.top_accounts:
                 st.download_button(
-                    "📥 いいねアカウントCSV",
-                    _make_csv(pr.top_accounts, ["アカウント", "いいね回数"]),
+                    "📥 収集アカウントCSV",
+                    _make_csv(pr.top_accounts, ["アカウント", "投稿数"]),
                     file_name="persona_accounts.csv",
                     mime="text/csv",
                     use_container_width=True,
@@ -902,7 +902,7 @@ with tab6:
 
             # ─── コンテンツ形式分布 ───────────────────────────
             with right_col:
-                st.markdown("#### 📝 いいねされた投稿の形式")
+                st.markdown("#### 📝 ターゲット層の投稿形式")
                 if pr.format_dist:
                     total_fmt = sum(pr.format_dist.values())
                     for fmt, cnt in sorted(pr.format_dist.items(), key=lambda x: -x[1]):
@@ -960,21 +960,21 @@ with tab6:
             st.divider()
 
             # ─── よくいいねされるアカウント ───────────────────
-            st.markdown("#### 👤 よくいいねされるアカウント TOP15")
-            st.caption("ターゲット層が繰り返しいいねしているアカウント = 彼らのロールモデル・情報源")
+            st.markdown("#### 👤 投稿数の多いアカウント TOP15")
+            st.caption("ターゲット層のサンプルアカウント = 彼らのプロフィール・発信傾向の参考")
             if pr.top_accounts:
                 acc_cols = st.columns(3)
                 for i, (screen_name, cnt) in enumerate(pr.top_accounts[:15]):
                     acc_cols[i % 3].markdown(
-                        f"**@{screen_name}** &nbsp; `{cnt}回いいね`  \n"
+                        f"**@{screen_name}** &nbsp; `{cnt}件投稿収集`  \n"
                         f"[Xで見る](https://x.com/{screen_name})"
                     )
 
             st.divider()
 
             # ─── サンプル投稿（形式別）───────────────────────
-            st.markdown("#### 🗂 サンプル投稿（いいねされた実際の投稿）")
-            st.caption("形式ごとに実際のいいね投稿を表示します。ターゲットが「刺さった」投稿を直接読んで分析に使ってください")
+            st.markdown("#### 🗂 サンプル投稿（ターゲット層の実際の投稿）")
+            st.caption("形式ごとにターゲット層の実際の投稿を表示します。彼らの言葉・関心・悩みを直接読んで分析に使ってください")
             for fmt, posts in pr.sample_posts.items():
                 with st.expander(f"▶ {fmt}（{len(posts)}件）"):
                     for p in posts:

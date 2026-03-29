@@ -214,9 +214,12 @@ def analyze_persona(
 
     _progress(f"✅ {result.user_count}人のユーザーを収集しました")
 
-    # ─── STEP 2: いいね投稿を収集 ────────────────────────────
-    _progress("❤️  いいね投稿を収集中...")
-    all_liked_posts = []
+    # ─── STEP 2: 投稿テキストを収集 ──────────────────────────
+    # ※ X社が2024年6月にいいねを全ユーザー非公開化したため、
+    #    いいね取得APIは恒久的に0件となった。
+    #    代替としてユーザーの投稿テキストを分析する。
+    _progress("📝 ターゲット層の投稿を収集中...")
+    all_liked_posts = []  # 変数名はそのまま流用（集計ロジック共通）
     liked_account_counter = Counter()
     pages_per_user = max(1, likes_per_user // 20)  # 20件/ページ想定
 
@@ -227,33 +230,34 @@ def analyze_persona(
             continue
 
         if (i + 1) % 50 == 0:
-            _progress(f"  ❤️  {i+1}/{result.user_count}人処理中... ({len(all_liked_posts)}件収集済)")
+            _progress(f"  📝 {i+1}/{result.user_count}人処理中... ({len(all_liked_posts)}件収集済)")
 
         cursor = None
-        user_likes = []
+        user_posts = []
         for _ in range(pages_per_user):
             try:
-                data = client.get_user_likes(uid, cursor)
+                data = client.get_user_tweets(uid, cursor)
                 tweets = data.get('tweets', [])
                 if not tweets:
                     break
-                user_likes.extend(tweets)
-                # いいねされたアカウントをカウント
+                user_posts.extend(tweets)
+                # リプライ・RTは除外（オリジナル投稿のみ）
                 for t in tweets:
-                    liked_author = t.get('user', {}).get('screen_name', '')
-                    if liked_author and liked_author != screen_name:
-                        liked_account_counter[liked_author] += 1
+                    text = t.get('full_text', '') or t.get('text', '')
+                    if text and not text.startswith('RT @') and not text.startswith('@'):
+                        liked_account_counter[screen_name] += 1
                 cursor = data.get('next_cursor')
                 if not cursor:
                     break
                 time.sleep(0.15)
-            except Exception:
+            except Exception as e:
+                result.errors.append(f"投稿取得エラー (@{screen_name}): {e}")
                 break
 
-        all_liked_posts.extend(user_likes)
+        all_liked_posts.extend(user_posts)
 
     result.like_count = len(all_liked_posts)
-    _progress(f"✅ {result.like_count}件のいいね投稿を収集しました")
+    _progress(f"✅ {result.like_count}件の投稿を収集しました")
 
     # ─── STEP 3: テキスト集計 ────────────────────────────────
     _progress("📊 データを集計中...")
