@@ -765,9 +765,9 @@ with tab6:
 
         pa1, pa2 = st.columns(2)
         with pa1:
-            p_users = st.slider("サンプルユーザー数", min_value=50, max_value=500, value=500, step=50)
+            p_users = st.slider("サンプルユーザー数", min_value=50, max_value=2000, value=500, step=50)
         with pa2:
-            p_likes = st.slider("投稿収集数/人", min_value=20, max_value=100, value=100, step=20)
+            p_likes = st.slider("投稿収集数/人", min_value=20, max_value=500, value=100, step=20)
 
         p_submitted = st.form_submit_button("🧬 ペルソナ調査を開始", use_container_width=True, type="primary")
 
