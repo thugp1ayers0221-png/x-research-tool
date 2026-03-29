@@ -119,6 +119,10 @@ with tab1:
 
         b_submitted = st.form_submit_button("🔍 バズ探し開始", use_container_width=True, type="primary")
 
+    _b_api_calls = max(1, (b_max_posts * 3 + 99) // 100) + (b_max_comments // 20) * b_max_posts
+    _b_cost_jpy = _b_api_calls * 0.0002 * 150
+    st.caption(f"推定APIコール: 約{_b_api_calls:,}回 ／ 推定コスト: 約{_b_cost_jpy:.0f}円")
+
     if b_submitted:
         if not buzz_keyword:
             st.error("キーワードを入力してください")
@@ -233,6 +237,10 @@ with tab2:
             ac_max_followers = st.selectbox("フォロワーサンプル数", [100, 200, 300], index=1)
 
         ac_submitted = st.form_submit_button("👤 丸裸分析を開始", use_container_width=True, type="primary")
+
+    _ac_api_calls = 15 + ac_max_followers // 20
+    _ac_cost_jpy = _ac_api_calls * 0.0002 * 150
+    st.caption(f"推定APIコール: 約{_ac_api_calls:,}回 ／ 推定コスト: 約{_ac_cost_jpy:.0f}円")
 
     if ac_submitted:
         if not ac_handle:
@@ -402,6 +410,10 @@ with tab3:
 
         p_submitted = st.form_submit_button("🎯 投稿を分析", use_container_width=True, type="primary")
 
+    _p_api_calls = 1 + p_max_rt // 20 + p_max_quotes // 20 + p_max_comments // 20
+    _p_cost_jpy = _p_api_calls * 0.0002 * 150
+    st.caption(f"推定APIコール: 約{_p_api_calls:,}回 ／ 推定コスト: 約{_p_cost_jpy:.0f}円")
+
     if p_submitted:
         if not p_url:
             st.error("投稿URLを入力してください")
@@ -547,6 +559,10 @@ with tab4:
 
         n_submitted = st.form_submit_button("💡 ネタを発掘", use_container_width=True, type="primary")
 
+    _n_api_calls = 1 + n_max_likes // 20
+    _n_cost_jpy = _n_api_calls * 0.0002 * 150
+    st.caption(f"推定APIコール: 約{_n_api_calls:,}回 ／ 推定コスト: 約{_n_cost_jpy:.0f}円")
+
     if n_submitted:
         if not n_handle:
             st.error("アカウント名を入力してください")
@@ -652,6 +668,10 @@ with tab5:
             ar_max = st.selectbox("最大取得件数", [10, 20, 30], index=1)
 
         ar_submitted = st.form_submit_button("📰 記事を探す", use_container_width=True, type="primary")
+
+    _ar_api_calls = 1 + ar_max * 2
+    _ar_cost_jpy = _ar_api_calls * 0.0002 * 150
+    st.caption(f"推定APIコール: 約{_ar_api_calls:,}回 ／ 推定コスト: 約{_ar_cost_jpy:.0f}円")
 
     if ar_submitted:
         ar_prog = st.progress(0, text="準備中...")
