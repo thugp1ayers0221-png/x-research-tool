@@ -108,12 +108,12 @@ with tab1:
         with b_col2:
             b_min_faves = st.number_input("最低いいね数", min_value=50, value=300, step=50)
         with b_col3:
-            b_days = st.selectbox("期間", [7, 14, 30, 60], index=2, format_func=lambda d: f"直近{d}日")
+            b_days = st.selectbox("期間", [7, 14, 30, 60, 90, 180, 270, 540], index=2, format_func=lambda d: f"直近{d}日")
 
         with st.expander("⚙️ 詳細設定"):
             dc1, dc2 = st.columns(2)
             with dc1:
-                b_max_posts = st.selectbox("バズ投稿数", [5, 10, 20], index=1)
+                b_max_posts = st.selectbox("バズ投稿数", [5, 10, 20, 50, 100, 200, 500, 1000], index=1)
             with dc2:
                 b_max_comments = st.selectbox("コメント取得数/投稿", [20, 50, 100], index=1)
 
