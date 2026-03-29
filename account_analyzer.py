@@ -102,8 +102,8 @@ def _analyze_user_tweets(tweets: list[dict]) -> dict:
     buzz_threshold = 100
     buzz_posts = [t for t in tweets if (t.get("favorite_count", 0) or 0) >= buzz_threshold]
 
-    # TOP投稿
-    top_posts = sorted(tweets, key=lambda t: t.get("favorite_count", 0) or 0, reverse=True)[:5]
+    # TOP投稿（インプレッション順）
+    top_posts = sorted(tweets, key=lambda t: t.get("views_count", 0) or 0, reverse=True)[:5]
 
     # ハッシュタグ・キーワード傾向
     kw_counter = Counter()
