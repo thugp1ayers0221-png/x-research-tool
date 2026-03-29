@@ -229,14 +229,36 @@ def analyze_account(
             {
                 "name": u.get("name", ""),
                 "handle": u.get("screen_name", ""),
+                "uid": str(u.get("id_str") or u.get("id") or ""),
                 "followers": u.get("followers_count", 0) or 0,
                 "bio": (u.get("description", "") or "")[:80],
                 "verified": bool(u.get("verified") or u.get("is_blue_verified")),
+                "theme_overlap": [],
             }
             for u in (similar_data.get("users") or [])[:10]
         ]
     except Exception:
         result.similar_accounts = []
+
+    # 類似アカウントの投稿テーマ照合（各1コール）
+    target_kws = set(w for w, _ in (result.tweet_analysis.get("top_keywords") or [])[:30])
+    if target_kws and result.similar_accounts:
+        _cb(0.75, "類似アカウントの投稿テーマを照合中...")
+        for sim in result.similar_accounts:
+            sim_uid = sim.get("uid")
+            if not sim_uid:
+                continue
+            try:
+                sim_data = client.get_user_tweets(sim_uid)
+                sim_tweets = sim_data.get("tweets") or []
+                sim_counter: Counter = Counter()
+                for tw in sim_tweets[:20]:
+                    text = tw.get("full_text", "") or tw.get("text", "")
+                    sim_counter.update(_extract_keywords(text))
+                sim_top = set(w for w, _ in sim_counter.most_common(30))
+                sim["theme_overlap"] = sorted(target_kws & sim_top)[:5]
+            except Exception:
+                pass
 
     # ⑤ いいね傾向（取得できれば）
     _cb(0.85, "いいね傾向を分析中...")
