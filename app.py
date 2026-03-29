@@ -16,6 +16,7 @@ from post_analyzer import analyze_post, PostResult
 from neta_analyzer import analyze_neta, NetaResult
 from article_analyzer import analyze_articles, ArticleResult
 from persona_analyzer import analyze_persona, PersonaResult
+from competitor_analyzer import analyze_competitors, CompetitorResult
 try:
     from deep_search import deep_search, DeepSearchResult
     _deep_search_ok = True
@@ -93,13 +94,14 @@ st.title("🔍 X アナライザー")
 if not api_key:
     st.error("⚠️ SOCIALDATA_API_KEY が未設定です。`.env` ファイルに設定してください。")
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🔍 バズ探し",
     "👤 アカウント丸裸",
     "🎯 投稿分析",
     "💡 ネタ発掘",
     "📰 記事リサーチ",
     "🧬 ペルソナ調査",
+    "⚔️ 競合分析",
 ])
 
 
@@ -1104,3 +1106,119 @@ with tab6:
                         mc3.metric("🔁 RT", f"{p['retweets']:,}")
                         mc4.metric("👥 フォロワー", f"{p['followers']:,}")
                         st.markdown(f"[投稿を開く]({p['url']})")
+
+
+# ════════════════════════════════════════════════════════════
+# TAB 7: 競合分析
+# ════════════════════════════════════════════════════════════
+with tab7:
+    st.markdown("#### @usernameを入れて分析ボタンを押すだけ")
+    st.caption("フォロワーが他にフォローしているアカウントを集計 → 同じオーディエンスを取り合っている競合を特定します")
+
+    cm_col1, cm_col2 = st.columns([3, 1])
+    with cm_col1:
+        cm_handle = st.text_input(
+            "アカウント名",
+            placeholder="例: competitor_account（@なし、URLも可）",
+            key="cm_handle"
+        )
+    with cm_col2:
+        cm_max_followers = st.selectbox(
+            "フォロワーサンプル数",
+            [100, 200, 300, 500],
+            index=1,
+            key="cm_max_followers"
+        )
+
+    cm_pages = st.radio(
+        "フォロー先取得ページ数（1ページ=20件）",
+        [1, 2],
+        index=0,
+        horizontal=True,
+        key="cm_pages"
+    )
+
+    with st.expander("⚙️ フォロワー数フィルタ（競合の規模感）"):
+        filt_col1, filt_col2 = st.columns(2)
+        with filt_col1:
+            cm_min_ratio = st.slider(
+                "最小フォロワー比率（対象の何倍以上）",
+                min_value=0.05, max_value=1.0, value=0.1, step=0.05,
+                key="cm_min_ratio"
+            )
+        with filt_col2:
+            cm_max_ratio = st.slider(
+                "最大フォロワー比率（対象の何倍以下）",
+                min_value=1.0, max_value=20.0, value=10.0, step=0.5,
+                key="cm_max_ratio"
+            )
+
+    _cm_api_calls = 1 + cm_max_followers // 20 + cm_max_followers * cm_pages
+    _cm_cost_jpy = _cm_api_calls * 0.0002 * 150
+    st.caption(f"推定APIコール: 約{_cm_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_cm_cost_jpy)}円")
+
+    cm_submitted = st.button("⚔️ 競合を分析", use_container_width=True, type="primary", key="btn_competitor")
+
+    if cm_submitted:
+        if not cm_handle:
+            st.error("アカウント名を入力してください")
+            st.stop()
+
+        import re as _re2
+        _url_m = _re2.search(r"x\.com/([A-Za-z0-9_]+)", cm_handle)
+        handle_cm = _url_m.group(1) if _url_m else cm_handle.lstrip("@")
+
+        cm_prog = st.progress(0, text="準備中...")
+
+        def on_cm_prog(pct: float, msg: str):
+            cm_prog.progress(pct, text=msg)
+
+        try:
+            cm_result = analyze_competitors(
+                api_key=api_key,
+                handle=handle_cm,
+                max_followers=cm_max_followers,
+                following_pages=cm_pages,
+                min_followers_ratio=cm_min_ratio,
+                max_followers_ratio=cm_max_ratio,
+                progress_callback=on_cm_prog,
+            )
+            cm_prog.empty()
+            st.session_state["cm_result"] = cm_result
+        except Exception as e:
+            cm_prog.empty()
+            st.error(f"エラー: {e}")
+
+    if "cm_result" in st.session_state:
+        cr: CompetitorResult = st.session_state["cm_result"]
+
+        st.divider()
+
+        # サマリー
+        cm1, cm2, cm3, cm4 = st.columns(4)
+        cm1.metric("対象フォロワー数", f"{cr.target_followers:,}")
+        cm2.metric("サンプル数", f"{cr.sampled_followers:,}人")
+        cm3.metric("APIコール数", f"{cr.api_calls}回")
+        cm4.metric("推定コスト", f"約{_fmt_cost(cr.cost_jpy)}円")
+
+        st.divider()
+
+        if not cr.competitors:
+            st.warning("競合アカウントが見つかりませんでした。フォロワー数フィルタの範囲を広げてみてください。")
+        else:
+            st.markdown(f"#### ⚔️ 競合アカウント TOP{len(cr.competitors)}（フォロワー重複率順）")
+            st.caption(f"サンプルしたフォロワー{cr.sampled_followers}人のうち何人が各アカウントをフォローしているか")
+
+            for i, c in enumerate(cr.competitors):
+                with st.expander(
+                    f"{i + 1}. @{c['screen_name']}　"
+                    f"重複率 {c['overlap_pct']}%（{c['overlap_count']}/{cr.sampled_followers}人）　"
+                    f"フォロワー {c['followers_count']:,}"
+                ):
+                    exp_l, exp_r = st.columns([3, 1])
+                    with exp_l:
+                        st.markdown(f"**{c['name']}**　[@{c['screen_name']}]({c['url']})")
+                        st.markdown(c["description"] or "（bio なし）")
+                    with exp_r:
+                        st.metric("重複率", f"{c['overlap_pct']}%")
+                        st.metric("フォロワー", f"{c['followers_count']:,}")
