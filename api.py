@@ -122,8 +122,9 @@ class SocialDataClient:
         return results[:max_results]
 
     def get_all_tweets_from_path(self, path: str, max_results: int = 100) -> list[dict]:
-        """投稿リストを全ページ取得するヘルパー"""
+        """投稿リストを全ページ取得するヘルパー（重複ループ検出付き）"""
         results = []
+        seen_ids: set = set()
         cursor = None
         while len(results) < max_results:
             params = {}
@@ -133,7 +134,16 @@ class SocialDataClient:
             tweets = data.get("tweets", [])
             if not tweets:
                 break
-            results.extend(tweets)
+            # 新規ツイートが1件もなければAPIが同じページを返しているので打ち切り
+            new_tweets = [
+                t for t in tweets
+                if (t.get("id_str") or str(t.get("id", ""))) not in seen_ids
+            ]
+            if not new_tweets:
+                break
+            for t in new_tweets:
+                seen_ids.add(t.get("id_str") or str(t.get("id", "")))
+            results.extend(new_tweets)
             cursor = data.get("next_cursor")
             if not cursor:
                 break

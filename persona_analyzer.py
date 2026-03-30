@@ -24,8 +24,13 @@ def _get_tokenizer():
             _janome_ok = False
     return _tokenizer, _janome_ok
 
-CACHE_DIR = Path(__file__).parent / "cache" / "persona"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    CACHE_DIR = Path(__file__).parent / "cache" / "persona"
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    # Streamlit Cloud など書き込み不可の環境では /tmp を使用
+    CACHE_DIR = Path("/tmp/persona_cache")
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─── ストップワード ───────────────────────────────────────────
 JP_STOP = {
