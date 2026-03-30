@@ -100,10 +100,10 @@ def analyze_competitors(
                 cursor = data.get("next_cursor")
                 if not cursor:
                     break
-                _time.sleep(0.1)
-            except Exception:
+            except Exception as e:
+                if "429" in str(e):
+                    _time.sleep(2)  # レート制限時のみsleep
                 break
-        _time.sleep(0.1)
 
     # ④ フォロワー数フィルタ適用 & TOP20抽出
     _cb(0.92, "競合アカウントをランキング中...")

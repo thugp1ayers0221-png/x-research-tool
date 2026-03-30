@@ -90,6 +90,15 @@ def _fmt_cost(jpy: float) -> str:
         return "< 1"
     return f"{jpy:.0f}"
 
+
+def _make_csv(rows: list, headers: list[str]) -> bytes:
+    """CSV バイト列を生成（BOM付きUTF-8）"""
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(headers)
+    w.writerows(rows)
+    return buf.getvalue().encode("utf-8-sig")
+
 st.title("🔍 X アナライザー")
 if not api_key:
     st.error("⚠️ SOCIALDATA_API_KEY が未設定です。`.env` ファイルに設定してください。")
@@ -231,6 +240,33 @@ with tab1:
                 st.caption(c)
                 st.markdown("---")
 
+        # CSV
+        st.divider()
+        _b_csv_cols = st.columns(3)
+        with _b_csv_cols[0]:
+            if br.seed_posts:
+                st.download_button(
+                    "📥 バズ投稿CSV",
+                    _make_csv(
+                        [[p["url"], p["author"], p["likes"], p["retweets"], p["views"], p["text"]] for p in br.seed_posts],
+                        ["URL", "著者", "いいね", "RT", "インプレッション", "テキスト"],
+                    ),
+                    file_name="buzz_posts.csv", mime="text/csv",
+                )
+        with _b_csv_cols[1]:
+            if br.top_keywords:
+                st.download_button(
+                    "📥 頻出ワードCSV",
+                    _make_csv(br.top_keywords, ["キーワード", "出現回数"]),
+                    file_name="buzz_keywords.csv", mime="text/csv",
+                )
+        with _b_csv_cols[2]:
+            if br.topic_suggestions:
+                st.download_button(
+                    "📥 ネタ候補CSV",
+                    _make_csv([[t] for t in br.topic_suggestions], ["ネタ候補"]),
+                    file_name="buzz_neta.csv", mime="text/csv",
+                )
 
 # ════════════════════════════════════════════════════════════
 # TAB 2: アカウント丸裸
@@ -393,6 +429,38 @@ with tab2:
             else:
                 st.caption("類似アカウントが見つかりませんでした")
 
+        # CSV
+        st.divider()
+        _ac_csv_cols = st.columns(3)
+        with _ac_csv_cols[0]:
+            _top_posts = (ac.tweet_analysis or {}).get("top_posts") or []
+            if _top_posts:
+                st.download_button(
+                    "📥 TOP投稿CSV",
+                    _make_csv(
+                        [[p["url"], p["likes"], p["rts"], p["views"], p["text"]] for p in _top_posts],
+                        ["URL", "いいね", "RT", "インプレッション", "テキスト"],
+                    ),
+                    file_name="account_top_posts.csv", mime="text/csv",
+                )
+        with _ac_csv_cols[1]:
+            _kws2 = (ac.tweet_analysis or {}).get("top_keywords") or []
+            if _kws2:
+                st.download_button(
+                    "📥 頻出ワードCSV",
+                    _make_csv(_kws2, ["キーワード", "出現回数"]),
+                    file_name="account_keywords.csv", mime="text/csv",
+                )
+        with _ac_csv_cols[2]:
+            if ac.similar_accounts:
+                st.download_button(
+                    "📥 類似アカウントCSV",
+                    _make_csv(
+                        [[s["handle"], s["name"], s["followers"], s["bio"]] for s in ac.similar_accounts],
+                        ["handle", "名前", "フォロワー数", "bio"],
+                    ),
+                    file_name="account_similar.csv", mime="text/csv",
+                )
 
 
 # ════════════════════════════════════════════════════════════
@@ -550,6 +618,34 @@ with tab3:
             else:
                 st.caption("引用RTデータが取得できませんでした")
 
+        # CSV
+        st.divider()
+        _p_csv_cols = st.columns(3)
+        with _p_csv_cols[0]:
+            _qt_samples = (pr.quote_analysis or {}).get("samples") or []
+            if _qt_samples:
+                st.download_button(
+                    "📥 引用RTサンプルCSV",
+                    _make_csv([[s] for s in _qt_samples], ["引用RTテキスト"]),
+                    file_name="post_quotes.csv", mime="text/csv",
+                )
+        with _p_csv_cols[1]:
+            _cm_samples = (pr.comment_analysis or {}).get("samples") or []
+            if _cm_samples:
+                st.download_button(
+                    "📥 コメントサンプルCSV",
+                    _make_csv([[s] for s in _cm_samples], ["コメントテキスト"]),
+                    file_name="post_comments.csv", mime="text/csv",
+                )
+        with _p_csv_cols[2]:
+            _qt_kws = (pr.quote_analysis or {}).get("top_keywords") or []
+            if _qt_kws:
+                st.download_button(
+                    "📥 頻出ワードCSV",
+                    _make_csv(_qt_kws, ["キーワード", "出現回数"]),
+                    file_name="post_keywords.csv", mime="text/csv",
+                )
+
 
 # ════════════════════════════════════════════════════════════
 # TAB 4: ネタ発掘
@@ -657,6 +753,34 @@ with tab4:
                     f"{p['text']}"
                 )
                 st.markdown("---")
+
+        # CSV
+        st.divider()
+        _n_csv_cols = st.columns(3)
+        with _n_csv_cols[0]:
+            if nr.neta_suggestions:
+                st.download_button(
+                    "📥 ネタ候補CSV",
+                    _make_csv([[t] for t in nr.neta_suggestions], ["ネタ候補"]),
+                    file_name="neta_suggestions.csv", mime="text/csv",
+                )
+        with _n_csv_cols[1]:
+            if nr.top_keywords:
+                st.download_button(
+                    "📥 頻出ワードCSV",
+                    _make_csv(nr.top_keywords, ["キーワード", "スコア"]),
+                    file_name="neta_keywords.csv", mime="text/csv",
+                )
+        with _n_csv_cols[2]:
+            if nr.sample_posts:
+                st.download_button(
+                    "📥 高インプ投稿CSV",
+                    _make_csv(
+                        [[p["url"], p.get("views", 0), p["likes"], p["text"]] for p in nr.sample_posts],
+                        ["URL", "インプレッション", "いいね", "テキスト"],
+                    ),
+                    file_name="neta_top_posts.csv", mime="text/csv",
+                )
 
 
 # ════════════════════════════════════════════════════════════
@@ -771,6 +895,20 @@ with tab5:
                             st.caption(a["author"]["description"][:80])
                         st.markdown(f"[ポストを開く]({a['tweet_url']})")
 
+        # CSV
+        st.divider()
+        _ar_csv_cols = st.columns(2)
+        with _ar_csv_cols[0]:
+            if ar.articles:
+                st.download_button(
+                    "📥 記事一覧CSV",
+                    _make_csv(
+                        [[a["tweet_url"], a["title"] or "", a["metrics"]["likes"], a["metrics"]["retweets"], a["metrics"]["views"], a["author"]["screen_name"]] for a in ar.articles],
+                        ["URL", "タイトル", "いいね", "RT", "インプレッション", "著者"],
+                    ),
+                    file_name="articles.csv", mime="text/csv",
+                )
+
 
 # ════════════════════════════════════════════════════════════
 # TAB 6: ペルソナ調査
@@ -854,13 +992,6 @@ with tab6:
 
         # ─── CSV書き出し ──────────────────────────────────────
         st.divider()
-
-        def _make_csv(rows: list[tuple], headers: list[str]) -> bytes:
-            buf = io.StringIO()
-            w = csv.writer(buf)
-            w.writerow(headers)
-            w.writerows(rows)
-            return buf.getvalue().encode("utf-8-sig")
 
         dl1, dl2, dl3, dl4 = st.columns(4)
         with dl1:
@@ -1222,3 +1353,14 @@ with tab7:
                     with exp_r:
                         st.metric("重複率", f"{c['overlap_pct']}%")
                         st.metric("フォロワー", f"{c['followers_count']:,}")
+
+        # CSV
+        st.divider()
+        st.download_button(
+            "📥 競合アカウントCSV",
+            _make_csv(
+                [[c["screen_name"], c["name"], c["followers_count"], c["overlap_count"], c["overlap_pct"], c["description"], c["url"]] for c in cr.competitors],
+                ["handle", "名前", "フォロワー数", "重複人数", "重複率(%)", "bio", "URL"],
+            ),
+            file_name="competitors.csv", mime="text/csv",
+        )
