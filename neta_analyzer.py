@@ -115,9 +115,10 @@ def analyze_neta(
 
     result = NetaResult(handle=handle, post_count=0)
 
-    # ① タイムライン投稿を取得
+    # ① 投稿を取得（検索APIでリプライ除外）
     _cb(0.2, f"投稿を取得中（最大{max_posts}件）...")
-    raw_tweets = client.get_all_tweets_from_path(f"/twitter/user/{uid}/tweets", max_results=max_posts)
+    query = f"from:{handle} -filter:replies"
+    raw_tweets = client.search_all_tweets(query, max_results=max_posts)
 
     # 重複除去（id_strベース）
     seen_ids: set = set()
