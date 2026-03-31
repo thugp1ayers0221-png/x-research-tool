@@ -115,19 +115,17 @@ def analyze_neta(
 
     result = NetaResult(handle=handle, post_count=0)
 
-    # ① 投稿を取得（検索APIでリプライ除外）
+    # ① 投稿を取得（タイムラインAPIで全期間遡る）
     _cb(0.2, f"投稿を取得中（最大{max_posts}件）...")
-    query = f"from:{handle} -filter:replies"
-    raw_tweets = client.search_all_tweets(query, max_results=max_posts)
+    raw_tweets = client.get_all_tweets_from_path(
+        f"/twitter/user/{uid}/tweets", max_results=max_posts
+    )
 
-    # 重複除去（id_strベース）
-    seen_ids: set = set()
-    liked_tweets = []
-    for t in raw_tweets:
-        tid = t.get("id_str") or str(t.get("id", ""))
-        if tid and tid not in seen_ids:
-            seen_ids.add(tid)
-            liked_tweets.append(t)
+    # リプライを除外（in_reply_to_status_id_str があるものはリプライ）
+    liked_tweets = [
+        t for t in raw_tweets
+        if not (t.get("in_reply_to_status_id_str") or t.get("in_reply_to_status_id"))
+    ]
 
     result.post_count = len(liked_tweets)
 
