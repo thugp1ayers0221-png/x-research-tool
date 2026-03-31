@@ -35,12 +35,33 @@ JP_STOP = {
     'まじ', 'まじで', 'わかる', 'わかった', 'おもう', 'おもった',
 }
 EN_STOP = {
+    # 基本助動詞・be動詞
     'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
     'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+    'could', 'should', 'may', 'might', 'shall', 'can', 'cannot',
+    # 前置詞・接続詞
     'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from',
-    'it', 'this', 'that', 'and', 'or', 'but', 'not', 'so', 'if',
-    'i', 'me', 'my', 'we', 'you', 'he', 'she', 'they', 'them',
-    'what', 'which', 'who', 'how', 'when', 'where', 'why', 'rt',
+    'and', 'or', 'but', 'not', 'so', 'if', 'as', 'up', 'out',
+    'about', 'into', 'over', 'after', 'before', 'between', 'than',
+    # 代名詞・指示詞
+    'it', 'this', 'that', 'and', 'i', 'me', 'my', 'we', 'our',
+    'you', 'your', 'he', 'she', 'they', 'them', 'his', 'her', 'its',
+    'their', 'what', 'which', 'who', 'how', 'when', 'where', 'why',
+    # 副詞・形容詞（汎用）
+    'all', 'one', 'no', 'any', 'some', 'more', 'most', 'very',
+    'really', 'just', 'even', 'only', 'still', 'also', 'here',
+    'there', 'now', 'new', 'then', 'too', 'own', 'same', 'other',
+    'each', 'both', 'few', 'much', 'many', 'such', 'last', 'long',
+    # 一般動詞（ノイズになりやすい）
+    'get', 'got', 'go', 'going', 'come', 'take', 'make', 'see',
+    'know', 'think', 'look', 'looking', 'want', 'say', 'need',
+    'use', 'find', 'give', 'tell', 'let', 'keep', 'put', 'set',
+    'try', 'ask', 'seem', 'feel', 'become', 'show', 'run',
+    # ゲーム・SNS・一般IT系英語ノイズ
+    'rt', 'game', 'gta', 'like', 'lol', 'omg', 'via', 'amp',
+    'biggest', 'amazing', 'great', 'good', 'best', 'top', 'big',
+    # 数字・記号由来のノイズ
+    'http', 'https', 'co', 'www',
 }
 
 # ─── スパム判定ワード ─────────────────────────────────────────

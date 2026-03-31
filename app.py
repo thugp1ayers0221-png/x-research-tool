@@ -109,7 +109,7 @@ if "session_total_cost_jpy" not in st.session_state:
     st.session_state.session_total_cost_jpy = 0.0
 
 if st.session_state.session_total_cost_jpy > 0:
-    st.caption(f"💰 このセッション累計: {st.session_state.session_total_calls}コール / 約¥{st.session_state.session_total_cost_jpy:.0f}")
+    st.info(f"💰 このセッション累計: {st.session_state.session_total_calls}コール / 約¥{st.session_state.session_total_cost_jpy:.0f}")
 
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "⚔️ 競合分析",
@@ -288,7 +288,7 @@ with tab5:
         for i, t in enumerate(br.topic_suggestions):
             col_text, col_btn = st.columns([8, 1])
             col_text.markdown(f"**{i+1}.** {t}")
-            col_btn.code(t[:50], language=None)
+            col_btn.code(t, language=None)
 
         with st.expander("💬 コメントのサンプル（生の声）"):
             for c in br.raw_comments[:20]:
@@ -813,7 +813,7 @@ with tab3:
         for i, t in enumerate(nr.neta_suggestions):
             col_text, col_btn = st.columns([8, 1])
             col_text.markdown(f"**{i+1}.** {t}")
-            col_btn.code(t[:50], language=None)
+            col_btn.code(t, language=None)
 
         with st.expander(f"📌 インプレッション高い投稿 TOP8（取得{nr.post_count}件の中から）"):
             for p in nr.sample_posts:
