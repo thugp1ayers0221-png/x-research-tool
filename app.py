@@ -177,6 +177,7 @@ with tab5:
             st.session_state["b_result"] = b_result
             st.session_state.session_total_calls += b_result.api_calls
             st.session_state.session_total_cost_jpy += b_result.cost_jpy
+            st.rerun()
         except Exception as e:
             b_prog.empty()
             st.error(f"エラー: {e}")
@@ -370,6 +371,7 @@ with tab2:
             st.session_state["ac_result"] = ac_result
             st.session_state.session_total_calls += ac_result.api_calls
             st.session_state.session_total_cost_jpy += ac_result.cost_jpy
+            st.rerun()
         except Exception as e:
             ac_prog.empty()
             st.error(f"エラー: {e}")
@@ -579,6 +581,7 @@ with tab7:
             st.session_state["p_result"] = p_result
             st.session_state.session_total_calls += p_result.api_calls
             st.session_state.session_total_cost_jpy += p_result.cost_jpy
+            st.rerun()
         except Exception as e:
             p_prog.empty()
             st.error(f"エラー: {e}")
@@ -760,6 +763,7 @@ with tab3:
             st.session_state["n_result"] = n_result
             st.session_state.session_total_calls += n_result.api_calls
             st.session_state.session_total_cost_jpy += n_result.cost_jpy
+            st.rerun()
         except Exception as e:
             n_prog.empty()
             st.error(f"エラー: {e}")
@@ -894,6 +898,7 @@ with tab6:
             st.session_state["ar_result"] = ar_result
             st.session_state.session_total_calls += ar_result.api_calls
             st.session_state.session_total_cost_jpy += ar_result.cost_jpy
+            st.rerun()
         except Exception as e:
             ar_prog.empty()
             st.error(f"エラー: {e}")
@@ -1045,6 +1050,7 @@ with tab4:
                 st.session_state["persona_result"] = pr
                 st.session_state.session_total_calls += pr.user_count
                 st.session_state.session_total_cost_jpy += pr.estimated_cost_jpy
+                st.rerun()
             except Exception as e:
                 p_status.empty()
                 st.error(f"エラー: {e}")
@@ -1393,6 +1399,7 @@ with tab1:
             st.session_state["cm_result"] = cm_result
             st.session_state.session_total_calls += cm_result.api_calls
             st.session_state.session_total_cost_jpy += cm_result.cost_jpy
+            st.rerun()
         except Exception as e:
             cm_prog.empty()
             st.error(f"エラー: {e}")
