@@ -16,7 +16,7 @@ class SocialDataClient:
             "Accept": "application/json",
         })
         self._call_count = 0
-        self._cost_per_call = 0.0002  # USD per call
+        self._cost_per_call = 0.001  # USD per call（実績ベースに修正）
 
     @property
     def estimated_cost_usd(self) -> float:
@@ -156,8 +156,9 @@ class SocialDataClient:
         max_results: int = 500,
         progress_callback=None,
     ) -> list[dict]:
-        """全ページ分のツイートを収集"""
+        """全ページ分のツイートを収集（重複除去付き）"""
         results = []
+        seen_ids: set = set()
         cursor = None
 
         while len(results) < max_results:
@@ -166,7 +167,18 @@ class SocialDataClient:
             if not tweets:
                 break
 
-            results.extend(tweets)
+            # 重複除去（id_strベース）
+            new_tweets = [
+                t for t in tweets
+                if (t.get("id_str") or str(t.get("id", ""))) not in seen_ids
+            ]
+            for t in new_tweets:
+                seen_ids.add(t.get("id_str") or str(t.get("id", "")))
+            results.extend(new_tweets)
+
+            if not new_tweets:
+                break  # 新規ツイートがなければAPIが同じページを返している
+
             if progress_callback:
                 progress_callback(len(results))
 

@@ -39,44 +39,67 @@ def _generate_neta(
     top_hashtags: list[tuple[str, int]],
     cluster_scores: dict,
 ) -> list[str]:
-    top_kws = [k for k, _ in top_keywords[:15]]
+    """
+    投稿傾向の分析から、バズ構造（型）×キーワードでネタ候補を生成する。
+    特定アカウント専用ではなく、分析データに基づく汎用高精度版。
+    """
+    top_kws = [k for k, _ in top_keywords[:20]]
     top_clusters = list(cluster_scores.keys())[:3]
     neta = []
 
-    if len(top_kws) >= 2:
-        kw1 = top_kws[0]
-        kw2 = top_kws[1]
-        kw3 = top_kws[2] if len(top_kws) > 2 else top_kws[0]
-        kw4 = top_kws[3] if len(top_kws) > 3 else top_kws[1]
+    if len(top_kws) < 2:
+        return []
 
-        # 実際のキーワードベースで具体的なネタを生成
-        neta += [
-            f"{kw1}と{kw2}の本当の関係を誰も教えてくれない",
-            f"【{kw1}の真実】{kw2}が高い会社が必ずやっていること",
-            f"{kw1}を正しく理解している人が少なすぎる（{kw2}との違い）",
-            f"なぜ{kw2}が上がっても{kw1}が出るのか",
-            f"{kw1}・{kw2}・{kw3}を同時に語れる人が少ない理由",
-            f"【保存版】{kw1}の仕組みを図解で説明する",
-            f"{kw1}で失敗した企業に共通する3つのパターン",
-            f"{kw2}を改善しようとして{kw1}が悪化するパラドックス",
-            f"{kw3}と{kw4}、どちらを先に解決すべきか",
-            f"【{kw1}入門】知っておくべき基本を3分で説明する",
-        ]
+    kw1 = top_kws[0]
+    kw2 = top_kws[1]
+    kw3 = top_kws[2] if len(top_kws) > 2 else top_kws[0]
+    kw4 = top_kws[3] if len(top_kws) > 3 else top_kws[1]
+    cluster1 = top_clusters[0] if top_clusters else kw1
 
-    # クラスターが取れた場合のみ追加
+    # ── 型1: 経験・告白型（リアルさでバズる）
+    neta += [
+        f"「{kw1}」について正直に言う。多くの人が誤解していること",
+        f"{kw1}を本気でやって気づいた「やめてよかったこと」",
+        f"同じ{kw1}をやって、伸びた人と伸びなかった人の決定的な違い",
+    ]
+
+    # ── 型2: 逆張り・反論型（議論を呼ぶ）
+    neta += [
+        f"「{kw1}は{kw2}が大事」は半分ウソ。本当に効くのは別のこと",
+        f"みんなが信じてる{kw1}の「常識」、実は逆効果だった",
+        f"{kw2}より先に{kw1}を理解した方がいい理由",
+    ]
+
+    # ── 型3: 対比・格差型（共感と危機感）
+    neta += [
+        f"{kw1}で成果が出る人と出ない人。違いは「{kw2}」だけ",
+        f"{kw3}に気づいた人と気づかなかった人で、{kw1}の結果が変わる",
+    ]
+
+    # ── 型4: リスト・保存型（拡散される）
+    neta += [
+        f"今すぐやめるべき{kw1}の習慣TOP3",
+        f"{kw1}と{kw2}を同時に伸ばせる人が持っている3つの視点",
+    ]
+
+    # ── 型5: 数字・実証型（信頼性）
+    neta += [
+        f"{kw1}を90日続けた結果を正直に公開する",
+        f"「{kw3}」に本気で取り組んで変わった{kw1}の話",
+    ]
+
+    # ── クラスター追加
     if top_clusters:
-        cluster = top_clusters[0]
-        kw = top_kws[0] if top_kws else ""
         neta += [
-            f"{cluster}の世界で今起きていること（{kw}の観点から）",
-            f"【{cluster}】大半の人が勘違いしていること",
+            f"{cluster1}の世界で今起きていることを{kw1}の観点から語る",
+            f"大半の人が勘違いしている{cluster1}の本質",
         ]
 
-    # ハッシュタグがあれば追加
+    # ハッシュタグがあれば文脈に追加
     for ht, _ in top_hashtags[:2]:
-        neta.append(f"#{ht} が注目されている理由と今後の展望")
+        neta.append(f"#{ht} が注目されている理由と、{kw1}との関係性")
 
-    return neta[:12]
+    return neta[:15]
 
 
 @dataclass

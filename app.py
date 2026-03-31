@@ -103,21 +103,29 @@ st.title("🔍 X アナライザー")
 if not api_key:
     st.error("⚠️ SOCIALDATA_API_KEY が未設定です。`.env` ファイルに設定してください。")
 
+if "session_total_calls" not in st.session_state:
+    st.session_state.session_total_calls = 0
+if "session_total_cost_jpy" not in st.session_state:
+    st.session_state.session_total_cost_jpy = 0.0
+
+if st.session_state.session_total_cost_jpy > 0:
+    st.caption(f"💰 このセッション累計: {st.session_state.session_total_calls}コール / 約¥{st.session_state.session_total_cost_jpy:.0f}")
+
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "🔍 バズ探し",
-    "👤 アカウント丸裸",
-    "🎯 投稿分析",
-    "💡 ネタ発掘",
-    "📰 記事リサーチ",
-    "🧬 ペルソナ調査",
     "⚔️ 競合分析",
+    "👤 アカウント分析",
+    "💡 スタイル分析",
+    "🧬 ペルソナ調査",
+    "🔍 バズ探し",
+    "📰 記事リサーチ",
+    "🎯 投稿分析",
 ])
 
 
 # ════════════════════════════════════════════════════════════
-# TAB 1: バズ探し
+# TAB 5: バズ探し
 # ════════════════════════════════════════════════════════════
-with tab1:
+with tab5:
     st.markdown("#### キーワードを入れて分析ボタンを押すだけ")
     st.caption("バズ投稿の検索 → コメント・引用RTの生の声 → ターゲットのニーズ → ネタ候補 まで自動で実行します")
 
@@ -136,9 +144,11 @@ with tab1:
         with dc2:
             b_max_comments = st.selectbox("コメント取得数/投稿", [20, 50, 100], index=1)
 
-    _b_api_calls = max(1, (b_max_posts * 3 + 99) // 100) + (b_max_comments // 20) * b_max_posts
-    _b_cost_jpy = _b_api_calls * 0.0002 * 150
-    st.caption(f"推定APIコール: 約{_b_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_b_cost_jpy)}円")
+    # 検索: max_posts×3件をページ20件単位で取得 + コメント: 1コール/投稿（初回・キャッシュなし）
+    _b_search_calls = (b_max_posts * 3 + 19) // 20
+    _b_api_calls = _b_search_calls + b_max_posts
+    _b_cost_jpy = _b_api_calls * 0.001 * 150
+    st.caption(f"推定APIコール: 約{_b_api_calls:,}回（検索{_b_search_calls}回＋コメント{b_max_posts}回）／ 推定コスト: 約{_fmt_cost(_b_cost_jpy)}円")
 
     b_submitted = st.button("🔍 バズ探し開始", use_container_width=True, type="primary", key="btn_buzz")
 
@@ -147,7 +157,7 @@ with tab1:
             st.error("キーワードを入力してください")
             st.stop()
 
-        b_prog = st.progress(0, text="準備中...")
+        b_prog = st.progress(0, text="準備中... (目安: 30秒〜2分)")
 
         def on_b_prog(stage, count, message):
             pct = 0.2 if stage == "search" else min(0.2 + count / max(b_max_posts, 1) * 0.8, 1.0)
@@ -165,6 +175,8 @@ with tab1:
             )
             b_prog.empty()
             st.session_state["b_result"] = b_result
+            st.session_state.session_total_calls += b_result.api_calls
+            st.session_state.session_total_cost_jpy += b_result.cost_jpy
         except Exception as e:
             b_prog.empty()
             st.error(f"エラー: {e}")
@@ -217,23 +229,66 @@ with tab1:
         if br.seed_posts:
             st.divider()
             st.markdown("#### 🔥 分析対象のバズ投稿")
+            if "buzz_labels" not in st.session_state:
+                st.session_state.buzz_labels = {}
+
             for p in br.seed_posts:
-                st.markdown(
-                    f"❤️{p['likes']:,} 🔁{p['retweets']:,} 👁{p['views']/1000:.1f}k &nbsp; "
-                    f"[@{p['author']}]({p['url']})  \n"
-                    f"{p['text']}",
-                    unsafe_allow_html=True,
-                )
+                post_key = p['url']
+                col_info, col_label = st.columns([5, 2])
+                with col_info:
+                    eng_rate = f"{p['likes']/p['views']*100:.2f}%" if p.get('views', 0) > 0 else "—"
+                    st.markdown(
+                        f"❤️{p['likes']:,} 🔁{p['retweets']:,} 👁{p['views']/1000:.1f}k "
+                        f"**ER:{eng_rate}** &nbsp; [@{p['author']}]({p['url']})  \n"
+                        f"{p['text']}",
+                        unsafe_allow_html=True,
+                    )
+                with col_label:
+                    label = st.radio(
+                        "ラベル",
+                        ["未分類", "✅ 使う", "📌 あとで"],
+                        key=f"label_{post_key}",
+                        horizontal=True,
+                        index=["未分類", "✅ 使う", "📌 あとで"].index(
+                            st.session_state.buzz_labels.get(post_key, "未分類")
+                        )
+                    )
+                    st.session_state.buzz_labels[post_key] = label
+
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button(f"👤 アカウント分析へ", key=f"to_ac_{post_key}"):
+                        st.session_state["ac_prefill"] = p['author']
+                        st.info(f"「アカウント分析」タブで @{p['author']} を分析できます")
+                with btn_col2:
+                    if st.button(f"💡 スタイル分析へ", key=f"to_neta_{post_key}"):
+                        st.session_state["neta_prefill"] = p['author']
+                        st.info(f"「スタイル分析」タブで @{p['author']} を分析できます")
+
                 st.markdown("<hr style='margin:4px 0'>", unsafe_allow_html=True)
+
+            labeled_posts = [
+                p for p in br.seed_posts
+                if st.session_state.buzz_labels.get(p['url'], "未分類") != "未分類"
+            ]
+            if labeled_posts:
+                st.download_button(
+                    "📥 ラベル付き投稿CSV",
+                    _make_csv(
+                        [[p["url"], p["author"], p["likes"], p["views"],
+                          st.session_state.buzz_labels.get(p['url'], "未分類"), p["text"]]
+                         for p in labeled_posts],
+                        ["URL", "著者", "いいね", "インプ", "ラベル", "テキスト"],
+                    ),
+                    file_name="labeled_buzz_posts.csv", mime="text/csv",
+                )
 
         st.divider()
         st.markdown("#### ✍️ ネタ候補（バズる型×キーワード）")
-        nc1, nc2 = st.columns(2)
         for i, t in enumerate(br.topic_suggestions):
-            if i % 2 == 0:
-                nc1.markdown(f"- {t}")
-            else:
-                nc2.markdown(f"- {t}")
+            col_text, col_btn = st.columns([8, 1])
+            col_text.markdown(f"**{i+1}.** {t}")
+            col_btn.code(t[:50], language=None)
 
         with st.expander("💬 コメントのサンプル（生の声）"):
             for c in br.raw_comments[:20]:
@@ -269,23 +324,26 @@ with tab1:
                 )
 
 # ════════════════════════════════════════════════════════════
-# TAB 2: アカウント丸裸
+# TAB 2: アカウント分析
 # ════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### @usernameを入れて分析ボタンを押すだけ")
     st.caption("プロフィール → 投稿傾向 → フォロワー属性 → 類似アカウント まで自動で実行します")
 
-    ac_col1, ac_col2 = st.columns([3, 1])
+    ac_col1, ac_col2, ac_col3 = st.columns([3, 1, 1])
     with ac_col1:
-        ac_handle = st.text_input("アカウント名", placeholder="例: kii_analytics（@なし）")
+        ac_prefill = st.session_state.pop("ac_prefill", "")
+        ac_handle = st.text_input("アカウント名", value=ac_prefill, placeholder="例: kii_analytics（@なし）")
     with ac_col2:
         ac_max_followers = st.selectbox("フォロワーサンプル数", [100, 200, 300], index=1)
+    with ac_col3:
+        ac_max_tweets = st.selectbox("投稿取得数（傾向分析）", [60, 100, 200, 300], index=1)
 
-    _ac_api_calls = 15 + ac_max_followers // 20 + 10  # +10: 類似アカウント投稿テーマ照合
-    _ac_cost_jpy = _ac_api_calls * 0.0002 * 150
+    _ac_api_calls = 1 + ac_max_tweets // 20 + ac_max_followers // 20 + 1
+    _ac_cost_jpy = _ac_api_calls * 0.001 * 150
     st.caption(f"推定APIコール: 約{_ac_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_ac_cost_jpy)}円")
 
-    ac_submitted = st.button("👤 丸裸分析を開始", use_container_width=True, type="primary", key="btn_account")
+    ac_submitted = st.button("👤 アカウント分析を開始", use_container_width=True, type="primary", key="btn_account")
 
     if ac_submitted:
         if not ac_handle:
@@ -295,7 +353,7 @@ with tab2:
         import re as _re
         _url_match = _re.search(r"x\.com/([A-Za-z0-9_]+)", ac_handle)
         handle = _url_match.group(1) if _url_match else ac_handle.lstrip("@")
-        ac_prog = st.progress(0, text="準備中...")
+        ac_prog = st.progress(0, text="準備中... (目安: 30秒〜1分)")
 
         def on_ac_prog(pct: float, msg: str):
             ac_prog.progress(pct, text=msg)
@@ -305,11 +363,13 @@ with tab2:
                 api_key=api_key,
                 handle=handle,
                 max_followers=ac_max_followers,
-                max_tweets=60,
+                max_tweets=ac_max_tweets,
                 progress_callback=on_ac_prog,
             )
             ac_prog.empty()
             st.session_state["ac_result"] = ac_result
+            st.session_state.session_total_calls += ac_result.api_calls
+            st.session_state.session_total_cost_jpy += ac_result.cost_jpy
         except Exception as e:
             ac_prog.empty()
             st.error(f"エラー: {e}")
@@ -355,11 +415,17 @@ with tab2:
 
                 st.markdown("**バズ投稿 TOP5**")
                 for p in ta.get("top_posts", [])[:5]:
+                    er = f"{p['likes']/p['views']*100:.2f}%" if p.get('views', 0) > 0 else "—"
                     st.markdown(
-                        f"❤️{p['likes']:,} 🔁{p['rts']:,} 👁{p['views']/1000:.1f}k &nbsp; "
-                        f"[{p['text'][:50]}...]({p['url']})",
+                        f"❤️{p['likes']:,} 🔁{p['rts']:,} 👁{p['views']/1000:.1f}k **ER:{er}** &nbsp; "
+                        f"[{p['text'][:40]}...]({p['url']})",
                         unsafe_allow_html=True
                     )
+
+                st.markdown("**投稿が多い時間帯（JST）**")
+                if ta.get("posting_hours"):
+                    hours_str = " / ".join([f"`{h}時`({c}件)" for h, c in ta["posting_hours"][:5]])
+                    st.markdown(hours_str)
             else:
                 st.caption("投稿データなし")
 
@@ -464,9 +530,9 @@ with tab2:
 
 
 # ════════════════════════════════════════════════════════════
-# TAB 3: 投稿分析
+# TAB 7: 投稿分析
 # ════════════════════════════════════════════════════════════
-with tab3:
+with tab7:
     st.markdown("#### 投稿URLを入れて分析ボタンを押すだけ")
     st.caption("RTした人の属性 → 引用RTの反応パターン → コメントの声 → 「誰に届いたか」を可視化します")
 
@@ -485,7 +551,7 @@ with tab3:
             p_max_comments = st.selectbox("コメントの最大取得数", [30, 50, 100], index=1)
 
     _p_api_calls = 1 + p_max_rt // 20 + p_max_quotes // 20 + 1  # コメントは get_tweet_comments で1コール固定
-    _p_cost_jpy = _p_api_calls * 0.0002 * 150
+    _p_cost_jpy = _p_api_calls * 0.001 * 150
     st.caption(f"推定APIコール: 約{_p_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_p_cost_jpy)}円")
 
     p_submitted = st.button("🎯 投稿を分析", use_container_width=True, type="primary", key="btn_post")
@@ -495,7 +561,7 @@ with tab3:
             st.error("投稿URLを入力してください")
             st.stop()
 
-        p_prog = st.progress(0, text="準備中...")
+        p_prog = st.progress(0, text="準備中... (目安: 30秒〜1分)")
 
         def on_p_prog(pct: float, msg: str):
             p_prog.progress(pct, text=msg)
@@ -511,6 +577,8 @@ with tab3:
             )
             p_prog.empty()
             st.session_state["p_result"] = p_result
+            st.session_state.session_total_calls += p_result.api_calls
+            st.session_state.session_total_cost_jpy += p_result.cost_jpy
         except Exception as e:
             p_prog.empty()
             st.error(f"エラー: {e}")
@@ -648,23 +716,24 @@ with tab3:
 
 
 # ════════════════════════════════════════════════════════════
-# TAB 4: ネタ発掘
+# TAB 3: スタイル分析
 # ════════════════════════════════════════════════════════════
-with tab4:
+with tab3:
     st.markdown("#### 参考にしたいアカウントを入れて分析ボタンを押すだけ")
     st.caption("そのアカウントの投稿傾向 → トピッククラスター分析 → 「このアカウントが好むコンテンツ＝ネタ候補」を抽出します")
 
     n_col1, n_col2 = st.columns([3, 1])
     with n_col1:
-        n_handle = st.text_input("アカウント名", placeholder="例: competitor_account（@なし）")
+        neta_prefill = st.session_state.pop("neta_prefill", "")
+        n_handle = st.text_input("アカウント名", value=neta_prefill, placeholder="例: competitor_account（@なし）")
     with n_col2:
         n_max_posts = st.selectbox("取得件数", [100, 200, 500, 1000], index=1)
 
     _n_api_calls = 1 + n_max_posts // 20
-    _n_cost_jpy = _n_api_calls * 0.0002 * 150
+    _n_cost_jpy = _n_api_calls * 0.001 * 150
     st.caption(f"推定APIコール: 約{_n_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_n_cost_jpy)}円")
 
-    n_submitted = st.button("💡 ネタを発掘", use_container_width=True, type="primary", key="btn_neta")
+    n_submitted = st.button("💡 スタイルを分析", use_container_width=True, type="primary", key="btn_neta")
 
     if n_submitted:
         if not n_handle:
@@ -675,7 +744,7 @@ with tab4:
         import re as _re
         _url_match = _re.search(r"x\.com/([A-Za-z0-9_]+)", n_handle)
         handle_n = _url_match.group(1) if _url_match else n_handle.lstrip("@")
-        n_prog = st.progress(0, text="準備中...")
+        n_prog = st.progress(0, text="準備中... (目安: 15秒〜1分)")
 
         def on_n_prog(pct: float, msg: str):
             n_prog.progress(pct, text=msg)
@@ -689,6 +758,8 @@ with tab4:
             )
             n_prog.empty()
             st.session_state["n_result"] = n_result
+            st.session_state.session_total_calls += n_result.api_calls
+            st.session_state.session_total_cost_jpy += n_result.cost_jpy
         except Exception as e:
             n_prog.empty()
             st.error(f"エラー: {e}")
@@ -738,13 +809,11 @@ with tab4:
                     )
 
         st.divider()
-        st.markdown("#### ✍️ このアカウントの好みから生成したネタ候補")
-        nc1, nc2 = st.columns(2)
+        st.markdown("#### ✍️ このアカウントの投稿傾向から生成したネタ候補")
         for i, t in enumerate(nr.neta_suggestions):
-            if i % 2 == 0:
-                nc1.markdown(f"- {t}")
-            else:
-                nc2.markdown(f"- {t}")
+            col_text, col_btn = st.columns([8, 1])
+            col_text.markdown(f"**{i+1}.** {t}")
+            col_btn.code(t[:50], language=None)
 
         with st.expander(f"📌 インプレッション高い投稿 TOP8（取得{nr.post_count}件の中から）"):
             for p in nr.sample_posts:
@@ -784,9 +853,9 @@ with tab4:
 
 
 # ════════════════════════════════════════════════════════════
-# TAB 5: 記事リサーチ
+# TAB 6: 記事リサーチ
 # ════════════════════════════════════════════════════════════
-with tab5:
+with tab6:
     st.markdown("#### キーワード（任意）を入れて分析ボタンを押すだけ")
     st.caption("X Article を検索 → 本文・エンゲージメントを一括取得。トレンド記事のリサーチに使えます")
 
@@ -801,7 +870,7 @@ with tab5:
         ar_max = st.selectbox("最大取得件数", [10, 20, 30], index=1)
 
     _ar_api_calls = 1 + ar_max * 2
-    _ar_cost_jpy = _ar_api_calls * 0.0002 * 150
+    _ar_cost_jpy = _ar_api_calls * 0.001 * 150
     st.caption(f"推定APIコール: 約{_ar_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_ar_cost_jpy)}円")
 
     ar_submitted = st.button("📰 記事を探す", use_container_width=True, type="primary", key="btn_article")
@@ -823,6 +892,8 @@ with tab5:
             )
             ar_prog.empty()
             st.session_state["ar_result"] = ar_result
+            st.session_state.session_total_calls += ar_result.api_calls
+            st.session_state.session_total_cost_jpy += ar_result.cost_jpy
         except Exception as e:
             ar_prog.empty()
             st.error(f"エラー: {e}")
@@ -911,9 +982,9 @@ with tab5:
 
 
 # ════════════════════════════════════════════════════════════
-# TAB 6: ペルソナ調査
+# TAB 4: ペルソナ調査
 # ════════════════════════════════════════════════════════════
-with tab6:
+with tab4:
     st.markdown("#### ターゲット層の投稿行動からペルソナデータを収集")
     st.caption("プロフィールキーワードでユーザーをサンプリング → 投稿テキストを大量収集 → 興味・ペイン・インサイトの種を抽出します")
 
@@ -939,9 +1010,11 @@ with tab6:
         p_submitted = st.form_submit_button("🧬 ペルソナ調査を開始", use_container_width=True, type="primary")
 
     # フォーム外でリアルタイム更新（スライダー操作即時反映）
-    _api_calls = p_users + (p_likes // 20) * p_users
-    _cost_jpy = _api_calls * 0.0002 * 150
+    _api_calls = p_users * (1 + p_likes // 20)
+    _cost_jpy = _api_calls * 0.001 * 150
     st.caption(f"推定APIコール: 約{_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_cost_jpy)}円")
+    if _cost_jpy > 500:
+        st.warning(f"⚠️ 推定コストが高額です（約¥{_cost_jpy:.0f}）。設定を下げることを推奨します。")
 
     if p_submitted:
         bio_kws = [k.strip() for k in p_keywords_raw.split(",") if k.strip()]
@@ -956,7 +1029,7 @@ with tab6:
                 log_lines.append(msg)
                 p_log.markdown("\n\n".join(log_lines[-6:]))
 
-            p_status.info("🔄 収集中... 数分かかります")
+            p_status.info("🔄 収集中... 数分かかります（設定によっては10分以上）")
             try:
                 pr = analyze_persona(
                     api_key=api_key,
@@ -970,6 +1043,8 @@ with tab6:
                 p_status.empty()
                 p_log.empty()
                 st.session_state["persona_result"] = pr
+                st.session_state.session_total_calls += pr.user_count
+                st.session_state.session_total_cost_jpy += pr.estimated_cost_jpy
             except Exception as e:
                 p_status.empty()
                 st.error(f"エラー: {e}")
@@ -1240,9 +1315,9 @@ with tab6:
 
 
 # ════════════════════════════════════════════════════════════
-# TAB 7: 競合分析
+# TAB 1: 競合分析
 # ════════════════════════════════════════════════════════════
-with tab7:
+with tab1:
     st.markdown("#### @usernameを入れて分析ボタンを押すだけ")
     st.caption("フォロワーが他にフォローしているアカウントを集計 → 同じオーディエンスを取り合っている競合を特定します")
 
@@ -1285,7 +1360,7 @@ with tab7:
             )
 
     _cm_api_calls = 1 + cm_max_followers // 20 + cm_max_followers * cm_pages
-    _cm_cost_jpy = _cm_api_calls * 0.0002 * 150
+    _cm_cost_jpy = _cm_api_calls * 0.001 * 150
     st.caption(f"推定APIコール: 約{_cm_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_cm_cost_jpy)}円")
 
     cm_submitted = st.button("⚔️ 競合を分析", use_container_width=True, type="primary", key="btn_competitor")
@@ -1316,6 +1391,8 @@ with tab7:
             )
             cm_prog.empty()
             st.session_state["cm_result"] = cm_result
+            st.session_state.session_total_calls += cm_result.api_calls
+            st.session_state.session_total_cost_jpy += cm_result.cost_jpy
         except Exception as e:
             cm_prog.empty()
             st.error(f"エラー: {e}")
