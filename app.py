@@ -993,6 +993,19 @@ with tab4:
     st.markdown("#### ターゲット層の投稿行動からペルソナデータを収集")
     st.caption("プロフィールキーワードでユーザーをサンプリング → 投稿テキストを大量収集 → 興味・ペイン・インサイトの種を抽出します")
 
+    # スライダーはform外でリアルタイム更新
+    pa1, pa2 = st.columns(2)
+    with pa1:
+        p_users = st.slider("サンプルユーザー数", min_value=50, max_value=2000, value=100, step=50)
+    with pa2:
+        p_likes = st.slider("投稿収集数/人", min_value=20, max_value=500, value=40, step=20)
+
+    _api_calls = p_users * (1 + p_likes // 20)
+    _cost_jpy = _api_calls * 0.001 * 150
+    st.caption(f"推定APIコール: 約{_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_cost_jpy)}円")
+    if _cost_jpy > 500:
+        st.warning(f"⚠️ 推定コストが高額です（約¥{_cost_jpy:.0f}）。設定を下げることを推奨します。")
+
     with st.form("persona_form"):
         pc1, pc2, pc3 = st.columns([4, 1, 1])
         with pc1:
@@ -1006,20 +1019,7 @@ with tab4:
         with pc3:
             p_max_f = st.number_input("フォロワー最大", min_value=1000, value=10000, step=1000)
 
-        pa1, pa2 = st.columns(2)
-        with pa1:
-            p_users = st.slider("サンプルユーザー数", min_value=50, max_value=2000, value=500, step=50)
-        with pa2:
-            p_likes = st.slider("投稿収集数/人", min_value=20, max_value=500, value=100, step=20)
-
         p_submitted = st.form_submit_button("🧬 ペルソナ調査を開始", use_container_width=True, type="primary")
-
-    # フォーム外でリアルタイム更新（スライダー操作即時反映）
-    _api_calls = p_users * (1 + p_likes // 20)
-    _cost_jpy = _api_calls * 0.001 * 150
-    st.caption(f"推定APIコール: 約{_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_cost_jpy)}円")
-    if _cost_jpy > 500:
-        st.warning(f"⚠️ 推定コストが高額です（約¥{_cost_jpy:.0f}）。設定を下げることを推奨します。")
 
     if p_submitted:
         bio_kws = [k.strip() for k in p_keywords_raw.split(",") if k.strip()]
