@@ -118,11 +118,12 @@ def analyze_trend(
     result.points = points
     result.total_posts_analyzed = sum(p.post_count for p in points)
 
-    # トレンド方向判定（後半 vs 前半の平均インプレ比較）
-    if len(points) >= 4:
-        half = len(points) // 2
-        first_avg = sum(p.avg_views for p in points[:half]) / half
-        last_avg = sum(p.avg_views for p in points[half:]) / (len(points) - half)
+    # トレンド方向判定（後半 vs 前半の平均インプレ比較・0件期間を除外）
+    active_points = [p for p in points if p.post_count > 0]
+    if len(active_points) >= 4:
+        half = len(active_points) // 2
+        first_avg = sum(p.avg_views for p in active_points[:half]) / half
+        last_avg = sum(p.avg_views for p in active_points[half:]) / (len(active_points) - half)
         if last_avg > first_avg * 1.2:
             result.trend_direction = "上昇中"
         elif last_avg < first_avg * 0.8:

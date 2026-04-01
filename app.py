@@ -850,7 +850,7 @@ with tab3:
         # ── ポストスタイル5パターン ──────────────────────────────
         st.divider()
         st.markdown("#### 🎭 ポストスタイル分析（5パターン分類）")
-        st.caption("このアカウントの投稿がどのスタイルで書かれているかを分類します")
+        st.caption("このアカウントの投稿がどのスタイルで書かれているかを分類します　※ キーワードベースのルール分類のため参考値です")
 
         if nr.style_distribution:
             total_classified = sum(nr.style_distribution.values()) or 1
@@ -1577,16 +1577,20 @@ with tab8:
         # 時間帯バーチャート（24時間）
         if tr.hour_avg_views:
             st.markdown("#### 📊 時間帯別 平均インプレッション（JST）")
+            st.caption("※ 投稿数5件未満の時間帯は参考値（サンプル不足）")
             import pandas as pd
             hour_data = []
             for h in range(24):
+                cnt = tr.hour_post_count.get(h, 0)
+                avg = tr.hour_avg_views.get(h, 0)
                 hour_data.append({
                     "時間帯": f"{h}時",
-                    "平均インプレ": tr.hour_avg_views.get(h, 0),
-                    "投稿数": tr.hour_post_count.get(h, 0),
+                    "平均インプレ（5件以上）": avg if cnt >= 5 else 0,
+                    "平均インプレ（参考・5件未満）": avg if cnt < 5 else 0,
+                    "投稿数": cnt,
                 })
             df_hour = pd.DataFrame(hour_data)
-            st.bar_chart(df_hour.set_index("時間帯")["平均インプレ"])
+            st.bar_chart(df_hour.set_index("時間帯")[["平均インプレ（5件以上）", "平均インプレ（参考・5件未満）"]])
 
         # 曜日分析
         if tr.best_weekdays:
