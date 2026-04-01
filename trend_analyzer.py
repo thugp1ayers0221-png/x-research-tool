@@ -68,7 +68,8 @@ def analyze_trend(
         label = f"{since.month}/{since.day}〜{until.month}/{until.day}"
         _cb(pct, f"「{keyword}」の推移を取得中... {label}")
 
-        query = f"{keyword} lang:{lang} since:{since.isoformat()} until:{until.isoformat()} -filter:replies"
+        lang_filter = f" lang:{lang}" if lang else ""
+        query = f"{keyword}{lang_filter} since:{since.isoformat()} until:{until.isoformat()} -filter:replies"
         try:
             tweets = client.search_all_tweets(query, max_results=100)
         except Exception:

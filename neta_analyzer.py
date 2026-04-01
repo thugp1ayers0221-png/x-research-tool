@@ -243,7 +243,6 @@ def analyze_neta(
 
     # ⑥ ポストスタイル5パターン分類
     _cb(0.92, "投稿スタイルを分類中...")
-    from collections import defaultdict as _dd
     style_count: dict = {s: 0 for s in STYLE_PATTERNS}
     style_best: dict = {s: [] for s in STYLE_PATTERNS}  # top2 by views
 

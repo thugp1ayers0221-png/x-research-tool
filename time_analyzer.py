@@ -70,7 +70,7 @@ def analyze_posting_time(
     hour_best: dict = {}  # hour → best tweet text
 
     for tw in tweets:
-        created = tw.get("tweet_created_at", "")
+        created = tw.get("tweet_created_at") or tw.get("created_at", "")
         dt = _parse_created_at(created)
         if not dt:
             continue
