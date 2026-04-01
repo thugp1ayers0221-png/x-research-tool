@@ -15,7 +15,6 @@ from account_analyzer import analyze_account, AccountResult
 from post_analyzer import analyze_post, PostResult
 from neta_analyzer import analyze_neta, NetaResult
 from time_analyzer import analyze_posting_time, TimeAnalysisResult, WEEKDAYS_JA
-from trend_analyzer import analyze_trend, TrendResult
 from article_analyzer import analyze_articles, ArticleResult
 from persona_analyzer import analyze_persona, PersonaResult
 from competitor_analyzer import analyze_competitors, CompetitorResult
@@ -129,7 +128,7 @@ with st.expander("🎯 何から始める？ ― 目的別ガイド", expanded=F
         st.markdown("**投稿の反応を分析したい**")
         st.caption("🎯 投稿分析 → RTした人の属性・コメントの声を可視化\n\n📰 記事リサーチ → バズってる記事・切り口を収集")
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "⚔️ 競合分析",
     "👤 アカウント分析",
     "💡 スタイル分析",
@@ -138,7 +137,6 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📰 記事リサーチ",
     "🎯 投稿分析",
     "⏰ 時間帯分析",
-    "📈 トレンド推移",
 ])
 
 
@@ -1611,105 +1609,4 @@ with tab8:
                 "📥 時間帯別データCSV",
                 _make_csv(hour_csv_data, ["時間帯", "平均インプレ", "投稿数"]),
                 file_name="posting_time.csv", mime="text/csv",
-            )
-
-
-# ════════════════════════════════════════════════════════════
-# TAB 9: トレンド推移
-# ════════════════════════════════════════════════════════════
-with tab9:
-    st.markdown("#### キーワードのバズり波形を時系列で確認")
-    st.caption("「このテーマ、今が旬か？終わりかけか？」を投稿数・インプレッション推移で判断します")
-
-    td_col1, td_col2, td_col3 = st.columns([3, 1, 1])
-    with td_col1:
-        td_keyword = st.text_input("キーワード", placeholder="例: 生成AI / マーケティング / SNS運用", key="td_keyword")
-    with td_col2:
-        td_days = st.selectbox("期間", [30, 60, 90, 180], index=2, key="td_days", format_func=lambda d: f"直近{d}日")
-    with td_col3:
-        td_lang = st.selectbox("言語", ["ja", "en", ""], index=0, key="td_lang", format_func=lambda l: {"ja": "日本語", "en": "英語", "": "全言語"}.get(l, l))
-
-    _td_intervals = td_days // 7
-    _td_api_calls = _td_intervals * 5  # 各期間で約5コール
-    _td_cost_jpy = _td_api_calls * 0.001 * 150
-    st.caption(f"推定APIコール: 約{_td_api_calls:,}回 ／ 推定コスト: 約{_fmt_cost(_td_cost_jpy)}円")
-
-    td_submitted = st.button("📈 トレンドを分析", use_container_width=True, type="primary", key="btn_trend")
-
-    if td_submitted:
-        if not td_keyword:
-            st.error("キーワードを入力してください")
-            st.stop()
-
-        td_prog = st.progress(0, text="準備中...")
-
-        def on_td_prog(pct: float, msg: str):
-            td_prog.progress(pct, text=msg)
-
-        try:
-            td_result = analyze_trend(
-                api_key=api_key,
-                keyword=td_keyword,
-                days=td_days,
-                lang=td_lang,
-                progress_callback=on_td_prog,
-            )
-            td_prog.empty()
-            st.session_state["td_result"] = td_result
-            st.session_state.session_total_calls += td_result.api_calls
-            st.session_state.session_total_cost_jpy += td_result.cost_jpy
-            st.rerun()
-        except Exception as e:
-            td_prog.empty()
-            st.error(f"エラー: {e}")
-
-    if "td_result" in st.session_state:
-        tdr: TrendResult = st.session_state["td_result"]
-
-        st.divider()
-        tdm1, tdm2, tdm3 = st.columns(3)
-        tdm1.metric("分析期間", f"直近{tdr.days}日")
-        tdm2.metric("総投稿数", f"{tdr.total_posts_analyzed:,}件")
-        tdm3.metric("ピーク期間", tdr.peak_period)
-
-        st.divider()
-
-        if tdr.points:
-            import pandas as pd
-
-            st.markdown("#### 📊 期間別 投稿数・平均インプレッション推移")
-            df_td = pd.DataFrame([
-                {
-                    "期間": p.date_label,
-                    "投稿数": p.post_count,
-                    "平均インプレ": p.avg_views,
-                }
-                for p in tdr.points
-            ])
-            td_chart_col1, td_chart_col2 = st.columns(2)
-            with td_chart_col1:
-                st.caption("投稿数（話題量）")
-                st.bar_chart(df_td.set_index("期間")["投稿数"])
-            with td_chart_col2:
-                st.caption("平均インプレッション（注目度）")
-                st.bar_chart(df_td.set_index("期間")["平均インプレ"])
-
-            # ピーク期間のバズり投稿
-            peak_point = max(tdr.points, key=lambda p: p.avg_views)
-            if peak_point.top_post_text:
-                st.markdown(f"#### 🔥 ピーク期間（{peak_point.date_label}）の最大インプレ投稿")
-                st.markdown(
-                    f"👁 {peak_point.max_views:,} imp　[@{peak_point.top_post_author}](https://x.com/{peak_point.top_post_author})  \n"
-                    f"{peak_point.top_post_text}"
-                )
-
-            # CSV
-            st.divider()
-            st.download_button(
-                "📥 トレンドデータCSV",
-                _make_csv(
-                    [[p.date_label, p.post_count, p.avg_views, p.max_views, p.top_post_author, p.top_post_text] for p in tdr.points],
-                    ["期間", "投稿数", "平均インプレ", "最大インプレ", "バズり著者", "バズり投稿"],
-                ),
-                file_name=f"trend_{tdr.keyword}.csv", mime="text/csv",
             )
