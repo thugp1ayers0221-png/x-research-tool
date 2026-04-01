@@ -1519,7 +1519,7 @@ with tab8:
     with tm_col1:
         tm_handle = st.text_input("アカウント名", placeholder="例: kii_analytics（@なし、URLも可）", key="tm_handle")
     with tm_col2:
-        tm_max_posts = st.selectbox("取得件数", [200, 500, 1000], index=1, key="tm_max_posts")
+        tm_max_posts = st.selectbox("取得件数", [200, 500, 1000], index=0, key="tm_max_posts")
 
     _tm_api_calls = 1 + tm_max_posts // 20
     _tm_cost_jpy = _tm_api_calls * 0.001 * 150
@@ -1574,23 +1574,24 @@ with tab8:
             for i, (hour, avg) in enumerate(tr.best_hours):
                 bh_cols[i].metric(f"{hour}時台（JST）", f"平均 {avg:,} imp")
 
-        # 時間帯バーチャート（24時間）
+        # 時間帯テーブル（24時間）
         if tr.hour_avg_views:
             st.markdown("#### 📊 時間帯別 平均インプレッション（JST）")
-            st.caption("※ 投稿数5件未満の時間帯は参考値（サンプル不足）")
-            import pandas as pd
-            hour_data = []
+            st.caption("※ 投稿数5件未満は参考値（サンプル不足）")
+            hour_rows = []
             for h in range(24):
                 cnt = tr.hour_post_count.get(h, 0)
                 avg = tr.hour_avg_views.get(h, 0)
-                hour_data.append({
-                    "時間帯": f"{h}時",
-                    "平均インプレ（5件以上）": avg if cnt >= 5 else 0,
-                    "平均インプレ（参考・5件未満）": avg if cnt < 5 else 0,
+                note = "⚠️ 参考" if cnt < 5 else ""
+                hour_rows.append({
+                    "時間帯": f"{h}時台",
+                    "平均インプレ": f"{avg:,}",
                     "投稿数": cnt,
+                    "備考": note,
                 })
-            df_hour = pd.DataFrame(hour_data)
-            st.bar_chart(df_hour.set_index("時間帯")[["平均インプレ（5件以上）", "平均インプレ（参考・5件未満）"]])
+            import pandas as pd
+            df_hour = pd.DataFrame(hour_rows)
+            st.dataframe(df_hour, use_container_width=True, hide_index=True)
 
         # 曜日分析
         if tr.best_weekdays:
@@ -1600,13 +1601,7 @@ with tab8:
             for wd in range(7):
                 avg = tr.weekday_avg_views.get(wd, 0)
                 cnt = tr.weekday_post_count.get(wd, 0)
-                color = "#e74c3c" if avg == max_wd_views else "#888"
-                wd_cols[wd].markdown(
-                    f"<div style='text-align:center'>"
-                    f"<b style='color:{color}'>{WEEKDAYS_JA[wd]}</b><br>"
-                    f"{avg:,}<br><small>{cnt}件</small></div>",
-                    unsafe_allow_html=True
-                )
+                wd_cols[wd].metric(WEEKDAYS_JA[wd], f"{avg:,}", f"{cnt}件")
 
         # CSV
         st.divider()
@@ -1672,11 +1667,10 @@ with tab9:
         tdr: TrendResult = st.session_state["td_result"]
 
         st.divider()
-        tdm1, tdm2, tdm3, tdm4 = st.columns(4)
+        tdm1, tdm2, tdm3 = st.columns(3)
         tdm1.metric("分析期間", f"直近{tdr.days}日")
         tdm2.metric("総投稿数", f"{tdr.total_posts_analyzed:,}件")
-        tdm3.metric("トレンド", tdr.trend_direction)
-        tdm4.metric("ピーク期間", tdr.peak_period)
+        tdm3.metric("ピーク期間", tdr.peak_period)
 
         st.divider()
 
