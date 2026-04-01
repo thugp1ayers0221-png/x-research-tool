@@ -153,7 +153,7 @@ with tab5:
     with b_col2:
         b_min_faves = st.number_input("最低いいね数", min_value=50, value=300, step=50)
     with b_col3:
-        b_days = st.selectbox("期間", [7, 14, 30, 60, 90, 180, 270, 540], index=2, format_func=lambda d: f"直近{d}日")
+        b_days = st.selectbox("期間", [1, 3, 7, 14, 30, 60, 90, 180, 270, 540], index=4, format_func=lambda d: f"直近{d}日")
 
     with st.expander("⚙️ 詳細設定"):
         dc1, dc2 = st.columns(2)
@@ -925,7 +925,7 @@ with tab6:
     with ar_col2:
         ar_min_likes = st.number_input("最低いいね数", min_value=50, value=100, step=50)
     with ar_col3:
-        ar_days = st.selectbox("期間", [7, 14, 30, 60, 90], index=2, format_func=lambda d: f"直近{d}日")
+        ar_days = st.selectbox("期間", [1, 3, 7, 14, 30, 60, 90], index=4, format_func=lambda d: f"直近{d}日")
     with ar_col4:
         ar_max = st.selectbox("最大取得件数", [10, 20, 30], index=1)
 
