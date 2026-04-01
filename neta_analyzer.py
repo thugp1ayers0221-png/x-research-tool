@@ -102,6 +102,43 @@ def _generate_neta(
     return neta[:15]
 
 
+# ── ポストスタイル5パターン分類 ─────────────────────────────────────
+STYLE_PATTERNS = {
+    "リスト・まとめ型": {
+        "desc": "箇条書き・番号付きリストで情報を整理する",
+        "signals": ["①", "②", "③", "④", "⑤", "１.", "２.", "・\n", "1.", "2.", "3.", "【", "▶", "✅"],
+    },
+    "問いかけ・共感型": {
+        "desc": "読者に問いかけ・共感を促す",
+        "signals": ["？", "ですよね", "じゃないですか", "思いませんか", "ませんか", "どうですか", "ではないでしょうか", "あなたは"],
+    },
+    "ストーリー・体験談型": {
+        "desc": "自身の体験・エピソードを語る",
+        "signals": ["実は", "正直に", "先日", "昨日", "〜した話", "体験", "経験", "あの頃", "私が", "僕が", "失敗", "気づいた"],
+    },
+    "教育・解説型": {
+        "desc": "知識・ノウハウを分かりやすく解説する",
+        "signals": ["なぜなら", "理由は", "とは", "ポイントは", "方法", "解説", "仕組み", "原則", "法則", "のコツ", "やり方", "手順"],
+    },
+    "主張・断言型": {
+        "desc": "強い意見・断定で読者を引きつける",
+        "signals": ["すべき", "は間違い", "断言", "確信", "絶対に", "必ず", "これだけは", "言い切れる", "事実として", "はっきり"],
+    },
+}
+
+
+def classify_post_style(text: str) -> str:
+    """1ツイートをスタイル5パターンに分類"""
+    scores = {style: 0 for style in STYLE_PATTERNS}
+    for style, info in STYLE_PATTERNS.items():
+        for sig in info["signals"]:
+            if sig in text:
+                scores[style] += 1
+    best = max(scores, key=lambda s: scores[s])
+    # スコアが0なら「主張・断言型」にフォールバック（デフォルト最多）
+    return best if scores[best] > 0 else "主張・断言型"
+
+
 @dataclass
 class NetaResult:
     handle: str
@@ -112,6 +149,10 @@ class NetaResult:
     topic_clusters: dict = field(default_factory=dict)
     neta_suggestions: list[str] = field(default_factory=list)
     sample_posts: list[dict] = field(default_factory=list)
+
+    # ポストスタイル分類
+    style_distribution: dict = field(default_factory=dict)   # style → count
+    style_examples: dict = field(default_factory=dict)        # style → [{"text","views","url"}, ...]
 
     api_calls: int = 0
     cost_jpy: float = 0.0
@@ -199,6 +240,29 @@ def analyze_neta(
         }
         for t in top_sample
     ]
+
+    # ⑥ ポストスタイル5パターン分類
+    _cb(0.92, "投稿スタイルを分類中...")
+    from collections import defaultdict as _dd
+    style_count: dict = {s: 0 for s in STYLE_PATTERNS}
+    style_best: dict = {s: [] for s in STYLE_PATTERNS}  # top2 by views
+
+    for tw in liked_tweets:
+        text = tw.get("full_text", "") or tw.get("text", "")
+        style = classify_post_style(text)
+        views = tw.get("views_count", 0) or 0
+        style_count[style] += 1
+        style_best[style].append({
+            "text": text[:120],
+            "views": views,
+            "url": f"https://x.com/{(tw.get('user') or {}).get('screen_name', '_')}/status/{tw.get('id_str', '')}",
+        })
+
+    result.style_distribution = style_count
+    result.style_examples = {
+        s: sorted(posts, key=lambda p: p["views"], reverse=True)[:2]
+        for s, posts in style_best.items()
+    }
 
     result.api_calls = client._call_count
     result.cost_jpy = client.estimated_cost_jpy
