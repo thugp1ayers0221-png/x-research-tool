@@ -111,6 +111,22 @@ if "session_total_cost_jpy" not in st.session_state:
 if st.session_state.session_total_cost_jpy > 0:
     st.info(f"💰 このセッション累計: {st.session_state.session_total_calls}コール / 約¥{st.session_state.session_total_cost_jpy:.0f}")
 
+# ── 目的別ガイド ──────────────────────────────────────────────
+with st.expander("🎯 何から始める？ ― 目的別ガイド", expanded=False):
+    g1, g2, g3, g4 = st.columns(4)
+    with g1:
+        st.markdown("**バズりたい・ネタを探したい**")
+        st.caption("🔍 バズ探し → 伸びてる投稿をジャンル×期間で検索\n\n💡 ネタ発掘 → 参考アカウントの投稿傾向からネタ候補を生成")
+    with g2:
+        st.markdown("**競合・市場を知りたい**")
+        st.caption("⚔️ 競合分析 → フォロワー重複率で真の競合を特定\n\n👤 アカウント分析 → 特定アカウントの戦略を丸裸に")
+    with g3:
+        st.markdown("**ターゲット・ペルソナを知りたい**")
+        st.caption("🧬 ペルソナ調査 → キーワードでユーザーをサンプリングして興味・ペインを抽出\n\n💡 スタイル分析 → 投稿スタイル・口調・構成パターンを分析")
+    with g4:
+        st.markdown("**投稿の反応を分析したい**")
+        st.caption("🎯 投稿分析 → RTした人の属性・コメントの声を可視化\n\n📰 記事リサーチ → バズってる記事・切り口を収集")
+
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "⚔️ 競合分析",
     "👤 アカウント分析",
