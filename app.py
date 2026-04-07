@@ -34,49 +34,128 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+  /* ── Linear Design System ───────────────────────────────── */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+  html, body, [class*="css"] {
+    font-family: 'Inter', 'SF Pro Display', -apple-system, system-ui, sans-serif !important;
+    font-feature-settings: "cv01", "ss03" !important;
+  }
+
   /* PC全振りレイアウト */
   .block-container { max-width: 1400px !important; padding: 1.5rem 2rem !important; }
 
+  /* メトリクスカード */
   [data-testid="metric-container"] {
-    background: #f8f9fa;
-    border: 1px solid #e0e3e8;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
     padding: 10px 16px;
   }
-  [data-testid="metric-container"]:hover { background: #f0f4ff; border-color: #4a90d9; }
+  [data-testid="metric-container"]:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(94,106,210,0.5);
+  }
 
-  h1 { font-size: 1.4rem !important; font-weight: 700 !important; margin-bottom: 0.2rem !important; }
-  h4 { font-size: 1.0rem !important; font-weight: 600 !important; margin-top: 0.8rem !important; }
+  h1 {
+    font-size: 1.4rem !important;
+    font-weight: 510 !important;
+    margin-bottom: 0.2rem !important;
+    color: #f7f8f8 !important;
+    letter-spacing: -0.3px !important;
+  }
+  h4 {
+    font-size: 1.0rem !important;
+    font-weight: 590 !important;
+    margin-top: 0.8rem !important;
+    color: #f7f8f8 !important;
+  }
 
   section[data-testid="stSidebar"] { width: 0 !important; }
-  .stTabs [data-baseweb="tab"] { font-size: 1.0rem; font-weight: 600; padding: 8px 20px; }
-  .stTabs [data-baseweb="tab-list"] { gap: 4px; }
 
-  /* フォームの余白を詰める */
-  .stForm { border: 1px solid #e0e3e8 !important; border-radius: 10px !important; padding: 1rem !important; }
+  /* タブ */
+  .stTabs [data-baseweb="tab"] {
+    font-size: 0.94rem;
+    font-weight: 510;
+    padding: 8px 20px;
+    color: #8a8f98 !important;
+    font-feature-settings: "cv01", "ss03" !important;
+  }
+  .stTabs [data-baseweb="tab"][aria-selected="true"] { color: #f7f8f8 !important; }
+  .stTabs [data-baseweb="tab-list"] {
+    gap: 4px;
+    background: transparent !important;
+    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  }
+
+  /* フォーム */
+  .stForm {
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 10px !important;
+    padding: 1rem !important;
+    background: rgba(255,255,255,0.02) !important;
+  }
   div[data-testid="stVerticalBlock"] > div { gap: 0.4rem; }
 
-  /* バーグラフの見た目改善 */
+  /* バーグラフ */
   .bar-wrap { margin-bottom: 4px; }
 
-  /* expanderをコンパクトに */
+  /* expander */
   .streamlit-expanderHeader { font-size: 0.9rem !important; padding: 6px 10px !important; }
 
   /* 類似アカウントカード */
   .similar-card {
-    border: 1px solid #e0e3e8;
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
     padding: 10px 14px;
     margin-bottom: 8px;
-    background: #fafbfc;
+    background: rgba(255,255,255,0.02);
   }
-  .similar-card:hover { background: #f0f4ff; border-color: #4a90d9; }
+  .similar-card:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(94,106,210,0.4);
+  }
 
-  /* dividerの余白を詰める */
-  hr { margin: 0.8rem 0 !important; }
+  /* divider */
+  hr { margin: 0.8rem 0 !important; border-color: rgba(255,255,255,0.08) !important; }
 
-  /* caption文字を少し大きく */
-  .stCaption { font-size: 0.82rem !important; }
+  /* caption */
+  .stCaption { font-size: 0.82rem !important; color: #8a8f98 !important; }
+
+  /* ボタン - Primary */
+  .stButton > button[kind="primaryFormSubmit"],
+  .stButton > button[data-testid="baseButton-primary"] {
+    background: #5e6ad2 !important;
+    border: none !important;
+    border-radius: 6px !important;
+    color: #ffffff !important;
+    font-weight: 510 !important;
+    font-feature-settings: "cv01", "ss03" !important;
+  }
+  .stButton > button[data-testid="baseButton-primary"]:hover { background: #828fff !important; }
+
+  /* ボタン - Secondary/Ghost */
+  .stButton > button[data-testid="baseButton-secondary"] {
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 6px !important;
+    color: #d0d6e0 !important;
+  }
+  .stButton > button[data-testid="baseButton-secondary"]:hover { background: rgba(255,255,255,0.07) !important; }
+
+  /* データフレーム */
+  [data-testid="stDataFrame"] {
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+  }
+
+  /* アラートボックス */
+  [data-testid="stAlert"] {
+    border-radius: 8px !important;
+    background: rgba(94,106,210,0.08) !important;
+    border-left: 3px solid #5e6ad2 !important;
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -221,7 +300,7 @@ with tab5:
                     bar = int(count / max_c * 100)
                     st.markdown(
                         f"`{word}` **{count}回** "
-                        f"<div style='background:#3498db;height:5px;width:{bar}%;border-radius:3px;margin-bottom:5px'></div>",
+                        f"<div style='background:#5e6ad2;height:5px;width:{bar}%;border-radius:3px;margin-bottom:5px'></div>",
                         unsafe_allow_html=True
                     )
 
@@ -461,7 +540,7 @@ with tab2:
                     pct = count / total_tier * 100
                     st.markdown(
                         f"`{label}` {pct:.0f}% ({count}人)"
-                        f"<div style='background:#2ecc71;height:5px;width:{pct:.0f}%;border-radius:3px;margin-bottom:4px'></div>",
+                        f"<div style='background:#10b981;height:5px;width:{pct:.0f}%;border-radius:3px;margin-bottom:4px'></div>",
                         unsafe_allow_html=True
                     )
                 if fa.get("verified_count"):
@@ -474,7 +553,7 @@ with tab2:
                     pct = count / total_genre * 100
                     st.markdown(
                         f"`{label}` {pct:.0f}%"
-                        f"<div style='background:#9b59b6;height:5px;width:{pct:.0f}%;border-radius:3px;margin-bottom:4px'></div>",
+                        f"<div style='background:#828fff;height:5px;width:{pct:.0f}%;border-radius:3px;margin-bottom:4px'></div>",
                         unsafe_allow_html=True
                     )
 
@@ -503,12 +582,12 @@ with tab2:
                     elif bio_matched:
                         reason = "bio: " + "　".join(f"`{w}`" for w in bio_matched[:4])
                     else:
-                        reason = "<span style='color:#aaa'>X内部アルゴリズムによる判定</span>"
+                        reason = "<span style='color:#8a8f98'>X内部アルゴリズムによる判定</span>"
                     st.markdown(
                         f"{vmark}**[{sim['name']}](https://x.com/{sim['handle']})** `@{sim['handle']}`  \n"
                         f"👥 {sim['followers']:,}  \n"
-                        f"<span style='color:#666;font-size:0.82rem'>{sim['bio'][:55]}</span>  \n"
-                        f"<span style='font-size:0.78rem;color:#888'>類似理由: {reason}</span>",
+                        f"<span style='color:#8a8f98;font-size:0.82rem'>{sim['bio'][:55]}</span>  \n"
+                        f"<span style='font-size:0.78rem;color:#8a8f98'>類似理由: {reason}</span>",
                         unsafe_allow_html=True
                     )
                     st.markdown("<hr style='margin:6px 0'>", unsafe_allow_html=True)
@@ -635,7 +714,7 @@ with tab7:
                     pct = count / total_t * 100
                     st.markdown(
                         f"`{label}` {pct:.0f}% ({count}人)"
-                        f"<div style='background:#e74c3c;height:5px;width:{pct:.0f}%;border-radius:3px;margin-bottom:5px'></div>",
+                        f"<div style='background:#7170ff;height:5px;width:{pct:.0f}%;border-radius:3px;margin-bottom:5px'></div>",
                         unsafe_allow_html=True
                     )
                 if ra.get("verified_count"):
@@ -686,7 +765,7 @@ with tab7:
                         bar = int(c / max_qc * 100)
                         st.markdown(
                             f"`{w}` **{c}回** "
-                            f"<div style='background:#f39c12;height:5px;width:{bar}%;border-radius:3px;margin-bottom:5px'></div>",
+                            f"<div style='background:#8a8f98;height:5px;width:{bar}%;border-radius:3px;margin-bottom:5px'></div>",
                             unsafe_allow_html=True
                         )
 
@@ -808,7 +887,7 @@ with tab3:
                     bar = int(score / max_score * 100)
                     st.markdown(
                         f"`{cluster}` スコア:{score}"
-                        f"<div style='background:#e74c3c;height:6px;width:{bar}%;border-radius:3px;margin-bottom:6px'></div>",
+                        f"<div style='background:#7170ff;height:6px;width:{bar}%;border-radius:3px;margin-bottom:6px'></div>",
                         unsafe_allow_html=True
                     )
             else:
@@ -826,7 +905,7 @@ with tab3:
                     bar = int(c / max_kc * 100)
                     st.markdown(
                         f"`{w}` **{c}回** "
-                        f"<div style='background:#3498db;height:5px;width:{bar}%;border-radius:3px;margin-bottom:5px'></div>",
+                        f"<div style='background:#5e6ad2;height:5px;width:{bar}%;border-radius:3px;margin-bottom:5px'></div>",
                         unsafe_allow_html=True
                     )
 
@@ -854,7 +933,7 @@ with tab3:
             total_classified = sum(nr.style_distribution.values()) or 1
             style_cols = st.columns(5)
             style_names = list(nr.style_distribution.keys())
-            style_colors = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6"]
+            style_colors = ["#5e6ad2", "#7170ff", "#10b981", "#8a8f98", "#828fff"]
 
             for i, (sname, scol) in enumerate(zip(style_names, style_cols)):
                 cnt = nr.style_distribution.get(sname, 0)
@@ -1191,8 +1270,8 @@ with tab4:
                         st.markdown(
                             f"<div class='bar-wrap'>"
                             f"<span style='display:inline-block;width:120px;font-weight:600'>{word}</span>"
-                            f"<span style='display:inline-block;background:#4a90d9;height:14px;width:{bar_pct}%;border-radius:3px;vertical-align:middle'></span>"
-                            f"<span style='margin-left:6px;color:#666;font-size:0.85em'>{cnt:,}</span>"
+                            f"<span style='display:inline-block;background:#5e6ad2;height:14px;width:{bar_pct}%;border-radius:3px;vertical-align:middle'></span>"
+                            f"<span style='margin-left:6px;color:#8a8f98;font-size:0.85em'>{cnt:,}</span>"
                             f"</div>",
                             unsafe_allow_html=True,
                         )
@@ -1208,8 +1287,8 @@ with tab4:
                         st.markdown(
                             f"<div class='bar-wrap'>"
                             f"<span style='display:inline-block;width:110px;font-weight:600'>{fmt}</span>"
-                            f"<span style='display:inline-block;background:#22c55e;height:14px;width:{bar_w}%;border-radius:3px;vertical-align:middle'></span>"
-                            f"<span style='margin-left:6px;color:#666;font-size:0.85em'>{pct:.1f}% ({cnt:,}件)</span>"
+                            f"<span style='display:inline-block;background:#10b981;height:14px;width:{bar_w}%;border-radius:3px;vertical-align:middle'></span>"
+                            f"<span style='margin-left:6px;color:#8a8f98;font-size:0.85em'>{pct:.1f}% ({cnt:,}件)</span>"
                             f"</div>",
                             unsafe_allow_html=True,
                         )
@@ -1228,8 +1307,8 @@ with tab4:
                         st.markdown(
                             f"<div class='bar-wrap'>"
                             f"<span style='display:inline-block;width:140px;font-weight:600'>{phrase}</span>"
-                            f"<span style='display:inline-block;background:#f59e0b;height:14px;width:{bar_pct}%;border-radius:3px;vertical-align:middle'></span>"
-                            f"<span style='margin-left:6px;color:#666;font-size:0.85em'>{cnt:,}</span>"
+                            f"<span style='display:inline-block;background:#8a8f98;height:14px;width:{bar_pct}%;border-radius:3px;vertical-align:middle'></span>"
+                            f"<span style='margin-left:6px;color:#8a8f98;font-size:0.85em'>{cnt:,}</span>"
                             f"</div>",
                             unsafe_allow_html=True,
                         )
@@ -1246,8 +1325,8 @@ with tab4:
                         st.markdown(
                             f"<div class='bar-wrap'>"
                             f"<span style='display:inline-block;width:160px;font-weight:600'>{phrase}</span>"
-                            f"<span style='display:inline-block;background:#ef4444;height:14px;width:{bar_pct}%;border-radius:3px;vertical-align:middle'></span>"
-                            f"<span style='margin-left:6px;color:#666;font-size:0.85em'>{cnt:,}</span>"
+                            f"<span style='display:inline-block;background:#7170ff;height:14px;width:{bar_pct}%;border-radius:3px;vertical-align:middle'></span>"
+                            f"<span style='margin-left:6px;color:#8a8f98;font-size:0.85em'>{cnt:,}</span>"
                             f"</div>",
                             unsafe_allow_html=True,
                         )
